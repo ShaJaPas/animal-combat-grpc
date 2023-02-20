@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package auth;
+
+
+service Auth {
+    rpc SignIn (LoginRequest) returns (JWTPair);
+    rpc SignUp (LoginRequest) returns (JWTPair);
+    rpc ObtainJWTPair (Token) returns (JWTPair);
+}
+
+
+message LoginRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message Token {
+    string token = 1;
+}
+
+message JWTPair {
+    string accessToken = 1;
+    string refreshToken = 2;
+    int64 accessTokenExpiry = 3;
+}

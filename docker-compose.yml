@@ -1,0 +1,44 @@
+version: '3'
+
+services:
+  psql:
+    image: postgres
+    container_name: psql
+    environment:
+      POSTGRES_DB: main
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      PGDATA: /var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+    restart: always
+    volumes:
+      - psql:/var/lib/postgresql/data:rw
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=test@gmail.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - psql
+
+  app:
+    build: .
+    container_name: app
+    command: animal-combat-grpc
+    ports:
+      - 3009:3009
+    environment:
+      DATABASE_URL: postgres://root:root@localhost:5432/main
+    volumes:
+      - ./src:/usr/src/app/
+    depends_on:
+      - psql
+
+volumes:
+  psql:
+    driver: local
