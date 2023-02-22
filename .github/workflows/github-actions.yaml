@@ -12,12 +12,11 @@ jobs:
 
     env:
       RUSTFLAGS: "-D warnings"
-      JWT_SECRET: "test"
     
     steps:
     - uses: hecrj/setup-rust-action@v1
       with:
-        rust-version: "1.67.1"
+        rust-version: stable
         components: rustfmt
     - uses: actions/checkout@v3
     - name: Install Protoc
@@ -29,3 +28,57 @@ jobs:
       run: cargo fmt -- --check
     - name: Check all targets
       run: cargo check --all --all-targets --all-features
+
+  clippy:
+    name: cargo clippy
+    runs-on: ubuntu-latest
+
+    env:
+      RUSTFLAGS: "-A unknown_lints -D warnings"
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: stable
+        components: clippy
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: Swatinem/rust-cache@v2
+    - name: Run cargo clippy
+      run: cargo clippy --workspace --all-targets --all-features
+
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      RUSTFLAGS: "-D warnings"
+      DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+
+    services:
+      postgres:
+        image: postgis/postgis:10-2.5
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: stable
+        components: rustfmt
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: Swatinem/rust-cache@v2
+    - uses: actions/checkout@v3
+    - name: Run tests
+      run: cargo test --all --all-features
