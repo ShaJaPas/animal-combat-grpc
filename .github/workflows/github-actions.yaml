@@ -7,31 +7,25 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
+      check:
+
+    env:
+      RUSTFLAGS: "-D warnings"
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-        
-      - name: build
-        uses: actions-rs/cargo@v1
-
-        with:
-          command: build
-      - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-      - name: Check fmt
-        run: cargo fmt -- --check
-
-      - name: Run clippy
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: "1.67.1"
+        components: rustfmt
+    - uses: actions/checkout@v3
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - uses: Swatinem/rust-cache@v2
+    - name: Check fmt
+      run: cargo fmt -- --check
+    - name: Check all targets
+      run: cargo check --all --all-targets --all-features
