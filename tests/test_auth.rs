@@ -27,7 +27,7 @@ async fn test_token_rotation(pool: PgPool) -> Result<(), Box<dyn std::error::Err
     });
 
     let hacker_response: JwtPair = client.obtain_jwt_pair(request).await?.into_inner();
-    std::thread::sleep(Duration::from_secs_f32(1.1));
+    std::thread::sleep(Duration::from_secs_f32(2));
 
     //User cannot login in
     let request = Request::new(Token {
@@ -38,7 +38,7 @@ async fn test_token_rotation(pool: PgPool) -> Result<(), Box<dyn std::error::Err
     //Then user login using his credentials
     let request = Request::new(user_credentials);
     assert!(client.sign_in(request).await.is_ok());
-    std::thread::sleep(Duration::from_secs_f32(1.1));
+    std::thread::sleep(Duration::from_secs_f32(2));
 
     //After that, hacker's refresh is useless
     let request = Request::new(Token {
