@@ -4,7 +4,7 @@ WORKDIR /usr/src/app
 
 COPY . /usr/src/app
 
-RUN apt update && apt upgrade -y
+RUN apt update
 
 RUN apt install -y protobuf-compiler libprotobuf-dev
 

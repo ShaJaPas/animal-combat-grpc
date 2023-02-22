@@ -2,6 +2,8 @@ use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, Pa
 
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
+use rand_core::OsRng;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tonic::{Request, Response, Status};
@@ -47,12 +49,11 @@ impl auth_server::Auth for Auth {
                 .map_err(|_| Status::unauthenticated("Password validation failed"))?;
 
             let mut claims = Claims {
-                email: email,
+                email,
                 exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
             };
             let header = Header::default();
-            let key =
-                EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
+            let key = EncodingKey::from_base64_secret(dotenv!("JWT_SECRET")).unwrap();
             let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
                 Ok(token) => token,
                 Err(e) => {
@@ -115,14 +116,28 @@ impl auth_server::Auth for Auth {
             )));
         }
 
-        //TODO: validate password and email
+        let email_regex =
+            Regex::new(r"^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")
+                .unwrap();
+
+        if !email_regex.is_match(&credentials.email) {
+            return Err(Status::unauthenticated("Invalid email is provided"));
+        }
+
+        let password_regex = Regex::new(r"^[0-9a-zA-Z]{8,}$").unwrap();
+
+        if !password_regex.is_match(&credentials.password) {
+            return Err(Status::unauthenticated(
+                "Password must be at least 8 characters and contain only latin letters and numbers",
+            ));
+        }
 
         let mut claims = Claims {
             email: credentials.email,
             exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
         };
         let header = Header::default();
-        let key = EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
+        let key = EncodingKey::from_base64_secret(dotenv!("JWT_SECRET")).unwrap();
         let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
             Ok(token) => token,
             Err(e) => {
@@ -143,7 +158,7 @@ impl auth_server::Auth for Auth {
             }
         };
 
-        let salt = SaltString::b64_encode(std::env::var("JWT_SECRET").unwrap().as_bytes()).unwrap();
+        let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         let hashed_password = argon2
             .hash_password(credentials.password.as_bytes(), &salt)
@@ -176,7 +191,7 @@ impl auth_server::Auth for Auth {
         let token = request.into_inner();
         let claims = jsonwebtoken::decode::<Claims>(
             &token.token,
-            &DecodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap(),
+            &DecodingKey::from_base64_secret(dotenv!("JWT_SECRET")).unwrap(),
             &Validation::default(),
         )
         .map_err(|_| Status::unauthenticated("Token invalid or expired"))?
@@ -198,7 +213,7 @@ impl auth_server::Auth for Auth {
             exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
         };
         let header = Header::default();
-        let key = EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
+        let key = EncodingKey::from_base64_secret(dotenv!("JWT_SECRET")).unwrap();
         let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
             Ok(token) => token,
             Err(e) => {
