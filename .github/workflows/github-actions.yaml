@@ -56,7 +56,7 @@ jobs:
     env:
       RUSTFLAGS: "-D warnings"
       DATABASE_URL: postgresql://test:test@localhost:5432/test_db
-      JWT_SECRET: "github_action_jwt_secret"
+      JWT_SECRET: "Z2l0aHViX2FjdGlvbl9qd3Rfc2VjcmV0"
 
     services:
       postgres:
