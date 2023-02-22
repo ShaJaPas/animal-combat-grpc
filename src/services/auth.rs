@@ -53,7 +53,8 @@ impl auth_server::Auth for Auth {
                 exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
             };
             let header = Header::default();
-            let key = EncodingKey::from_base64_secret(dotenv!("JWT_SECRET")).unwrap();
+            let key =
+                EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
             let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
                 Ok(token) => token,
                 Err(e) => {
@@ -137,7 +138,7 @@ impl auth_server::Auth for Auth {
             exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
         };
         let header = Header::default();
-        let key = EncodingKey::from_base64_secret(dotenv!("JWT_SECRET")).unwrap();
+        let key = EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
         let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
             Ok(token) => token,
             Err(e) => {
@@ -191,7 +192,7 @@ impl auth_server::Auth for Auth {
         let token = request.into_inner();
         let claims = jsonwebtoken::decode::<Claims>(
             &token.token,
-            &DecodingKey::from_base64_secret(dotenv!("JWT_SECRET")).unwrap(),
+            &DecodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap(),
             &Validation::default(),
         )
         .map_err(|_| Status::unauthenticated("Token invalid or expired"))?
@@ -213,7 +214,7 @@ impl auth_server::Auth for Auth {
             exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
         };
         let header = Header::default();
-        let key = EncodingKey::from_base64_secret(dotenv!("JWT_SECRET")).unwrap();
+        let key = EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
         let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
             Ok(token) => token,
             Err(e) => {

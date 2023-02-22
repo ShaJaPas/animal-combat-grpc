@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate dotenv_codegen;
-
 pub mod services;
 
 use jsonwebtoken::{DecodingKey, Validation};
@@ -16,7 +13,7 @@ fn _jwt_interceptor(mut req: Request<()>) -> Result<Request<()>, Status> {
     if let Ok(token) = token {
         let claims = jsonwebtoken::decode::<services::auth::Claims>(
             token,
-            &DecodingKey::from_base64_secret(dotenv!("JWT_SECRET")).unwrap(),
+            &DecodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap(),
             &Validation::default(),
         )
         .map_err(|e| Status::unauthenticated(e.to_string()))?;

@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate dotenv_codegen;
-
 use std::time::Duration;
 
 use animal_combat_grpc::services::auth::{Auth, AuthServer};
@@ -9,9 +6,11 @@ use tonic::{transport::Server, Request};
 
 #[tokio::main()]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenvy::dotenv()?;
+
     let pool = PgPoolOptions::new()
         .max_connections(8)
-        .connect(dotenv!("DATABASE_URL"))
+        .connect(&std::env::var("DATABASE_URL").unwrap())
         .await?;
 
     let addr = "[::1]:3009".parse().unwrap();
