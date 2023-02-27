@@ -25,7 +25,39 @@ const REFRESH_TOKEN_EXP_TIME: i64 = 86400; //1 day
 #[derive(Default)]
 pub struct Auth;
 
-//TODO: Вынесети генерацию токенов в макрос или метод
+#[inline]
+fn generate_jwt_pair(email: String) -> Result<(String, String, i64), Status> {
+    let mut claims = Claims {
+        email,
+        exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
+    };
+    let header = Header {
+        kid: Some(Uuid::new_v4().to_string()),
+        ..Default::default()
+    };
+    let key = EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
+    let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
+        Ok(token) => token,
+        Err(e) => {
+            return Err(Status::internal(format!(
+                "Refresh token generation failed: {e}"
+            )));
+        }
+    };
+
+    let access_token_expiry = Utc::now().timestamp() + ACCESS_TOKEN_EXP_TIME;
+    claims.exp = access_token_expiry;
+    let access_token = match jsonwebtoken::encode(&header, &claims, &key) {
+        Ok(token) => token,
+        Err(e) => {
+            return Err(Status::internal(format!(
+                "Refresh token generation failed: {e}"
+            )));
+        }
+    };
+    Ok((access_token, refresh_token, access_token_expiry))
+}
+
 #[tonic::async_trait]
 impl auth_server::Auth for Auth {
     async fn sign_in(&self, request: Request<LoginRequest>) -> Result<Response<JwtPair>, Status> {
@@ -49,36 +81,7 @@ impl auth_server::Auth for Auth {
                 .verify_password(credentials.password.as_bytes(), &hash)
                 .map_err(|_| Status::unauthenticated("Password validation failed"))?;
 
-            let mut claims = Claims {
-                email,
-                exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
-            };
-            let header = Header {
-                kid: Some(Uuid::new_v4().to_string()),
-                ..Default::default()
-            };
-            let key =
-                EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
-            let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
-                Ok(token) => token,
-                Err(e) => {
-                    return Err(Status::internal(format!(
-                        "Refresh token generation failed: {e}"
-                    )));
-                }
-            };
-
-            let access_token_expiry = Utc::now().timestamp() + ACCESS_TOKEN_EXP_TIME;
-            claims.exp = access_token_expiry;
-            let access_token = match jsonwebtoken::encode(&header, &claims, &key) {
-                Ok(token) => token,
-                Err(e) => {
-                    return Err(Status::internal(format!(
-                        "Refresh token generation failed: {e}"
-                    )));
-                }
-            };
-
+            let (access_token, refresh_token, access_token_expiry) = generate_jwt_pair(email)?;
             sqlx::query("UPDATE players SET refresh_token = $1 WHERE id = $2")
                 .bind(&refresh_token)
                 .bind(id)
@@ -137,34 +140,8 @@ impl auth_server::Auth for Auth {
             ));
         }
 
-        let mut claims = Claims {
-            email: credentials.email,
-            exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
-        };
-        let header = Header {
-            kid: Some(Uuid::new_v4().to_string()),
-            ..Default::default()
-        };
-        let key = EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
-        let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
-            Ok(token) => token,
-            Err(e) => {
-                return Err(Status::internal(format!(
-                    "Refresh token generation failed: {e}"
-                )));
-            }
-        };
-
-        let access_token_expiry = Utc::now().timestamp() + ACCESS_TOKEN_EXP_TIME;
-        claims.exp = access_token_expiry;
-        let access_token = match jsonwebtoken::encode(&header, &claims, &key) {
-            Ok(token) => token,
-            Err(e) => {
-                return Err(Status::internal(format!(
-                    "Refresh token generation failed: {e}"
-                )));
-            }
-        };
+        let (access_token, refresh_token, access_token_expiry) =
+            generate_jwt_pair(credentials.email.clone())?;
 
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
@@ -175,7 +152,7 @@ impl auth_server::Auth for Auth {
         sqlx::query(
             "INSERT INTO players (email, hashed_password, refresh_token) VALUES ($1, $2, $3)",
         )
-        .bind(claims.email)
+        .bind(credentials.email)
         .bind(hashed_password.to_string())
         .bind(&refresh_token)
         .execute(&pool)
@@ -205,52 +182,23 @@ impl auth_server::Auth for Auth {
         .map_err(|_| Status::unauthenticated("Token invalid or expired"))?
         .claims;
 
-        let (id, refresh): (i32, String) =
-            sqlx::query_as("SELECT id, refresh_token FROM players WHERE email = $1;")
-                .bind(&claims.email)
-                .fetch_one(&pool)
-                .await
-                .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
+        let (access_token, refresh_token, access_token_expiry) =
+            generate_jwt_pair(claims.email.clone())?;
 
-        if refresh != token.token {
+        if sqlx::query(
+            "UPDATE players SET refresh_token = $1 WHERE email = $2 AND refresh_token = $3",
+        )
+        .bind(&refresh_token)
+        .bind(&claims.email)
+        .bind(&token.token)
+        .execute(&pool)
+        .await
+        .map_err(|e| Status::data_loss(format!("Database error: {e}")))?
+        .rows_affected()
+            == 0
+        {
             return Err(Status::unauthenticated("Token is invalid"));
         }
-
-        let mut claims = Claims {
-            email: claims.email,
-            exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
-        };
-        let header = Header {
-            kid: Some(Uuid::new_v4().to_string()),
-            ..Default::default()
-        };
-        let key = EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
-        let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
-            Ok(token) => token,
-            Err(e) => {
-                return Err(Status::internal(format!(
-                    "Refresh token generation failed: {e}"
-                )));
-            }
-        };
-
-        let access_token_expiry = Utc::now().timestamp() + ACCESS_TOKEN_EXP_TIME;
-        claims.exp = access_token_expiry;
-        let access_token = match jsonwebtoken::encode(&header, &claims, &key) {
-            Ok(token) => token,
-            Err(e) => {
-                return Err(Status::internal(format!(
-                    "Refresh token generation failed: {e}"
-                )));
-            }
-        };
-
-        sqlx::query("UPDATE players SET refresh_token = $1 WHERE id = $2")
-            .bind(&refresh_token)
-            .bind(id)
-            .execute(&pool)
-            .await
-            .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
 
         Ok(Response::new(JwtPair {
             access_token,
