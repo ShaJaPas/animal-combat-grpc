@@ -1,4 +1,5 @@
 use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use uuid::Uuid;
 
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
@@ -52,7 +53,10 @@ impl auth_server::Auth for Auth {
                 email,
                 exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
             };
-            let header = Header::default();
+            let header = Header {
+                kid: Some(Uuid::new_v4().to_string()),
+                ..Default::default()
+            };
             let key =
                 EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
             let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
@@ -137,7 +141,10 @@ impl auth_server::Auth for Auth {
             email: credentials.email,
             exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
         };
-        let header = Header::default();
+        let header = Header {
+            kid: Some(Uuid::new_v4().to_string()),
+            ..Default::default()
+        };
         let key = EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
         let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
             Ok(token) => token,
@@ -213,7 +220,10 @@ impl auth_server::Auth for Auth {
             email: claims.email,
             exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
         };
-        let header = Header::default();
+        let header = Header {
+            kid: Some(Uuid::new_v4().to_string()),
+            ..Default::default()
+        };
         let key = EncodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap();
         let refresh_token = match jsonwebtoken::encode(&header, &claims, &key) {
             Ok(token) => token,
