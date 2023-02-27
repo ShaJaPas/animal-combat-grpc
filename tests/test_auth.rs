@@ -2,7 +2,6 @@ mod common;
 
 use animal_combat_grpc::services::auth::{auth_client::AuthClient, JwtPair, LoginRequest, Token};
 use sqlx::PgPool;
-use std::time::Duration;
 use tonic::Request;
 
 use crate::common::get_test_channel;
