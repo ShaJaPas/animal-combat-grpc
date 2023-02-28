@@ -13,7 +13,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .connect(&std::env::var("DATABASE_URL").unwrap())
         .await?;
 
-    let addr = "[::1]:3009".parse().unwrap();
+    let addr = "0.0.0.0:3009".parse().unwrap();
+    let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
+    health_reporter.set_serving::<AuthServer<Auth>>().await;
+
     let auth = Auth::default();
 
     let layer = tower::ServiceBuilder::new()
@@ -26,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Server::builder()
         .layer(layer)
+        .add_service(health_service)
         .add_service(AuthServer::new(auth))
         .serve(addr)
         .await?;
