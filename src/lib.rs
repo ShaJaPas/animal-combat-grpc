@@ -4,7 +4,7 @@ use jsonwebtoken::{DecodingKey, Validation};
 use tonic::{Request, Status};
 
 //Put this in any service, except Auth
-fn _jwt_interceptor(mut req: Request<()>) -> Result<Request<()>, Status> {
+pub fn jwt_interceptor(mut req: Request<()>) -> Result<Request<()>, Status> {
     let token = match req.metadata().get("authorization") {
         Some(token) => token.to_str(),
         None => return Err(Status::unauthenticated("JWT token not found")),
@@ -18,7 +18,7 @@ fn _jwt_interceptor(mut req: Request<()>) -> Result<Request<()>, Status> {
         )
         .map_err(|e| Status::unauthenticated(e.to_string()))?;
 
-        req.extensions_mut().insert(claims);
+        req.extensions_mut().insert(claims.claims);
     } else {
         return Err(Status::unauthenticated(
             "Key \"authorization\" was invalid string",

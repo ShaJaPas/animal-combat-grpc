@@ -1,4 +1,4 @@
-use animal_combat_grpc::services::auth::{Auth, AuthServer};
+use animal_combat_grpc::services::auth::{AuthServer, AuthService};
 use sqlx::PgPool;
 
 use std::time::Duration;
@@ -11,7 +11,7 @@ use tower::service_fn;
 pub async fn get_test_channel(pool: PgPool) -> Result<Channel, Box<dyn std::error::Error>> {
     let (client, server) = tokio::io::duplex(1024);
 
-    let auth = Auth::default();
+    let auth = AuthService::default();
 
     let layer = tower::ServiceBuilder::new()
         .timeout(Duration::from_secs(30))

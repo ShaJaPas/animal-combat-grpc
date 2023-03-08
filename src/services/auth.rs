@@ -15,7 +15,7 @@ tonic::include_proto!("auth");
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    email: String,
+    pub email: String,
     exp: i64,
 }
 
@@ -23,7 +23,7 @@ const ACCESS_TOKEN_EXP_TIME: i64 = 1800; //30min
 const REFRESH_TOKEN_EXP_TIME: i64 = 86400; //1 day
 
 #[derive(Default)]
-pub struct Auth;
+pub struct AuthService;
 
 #[inline]
 fn generate_jwt_pair(email: String) -> Result<(String, String, i64), Status> {
@@ -59,19 +59,18 @@ fn generate_jwt_pair(email: String) -> Result<(String, String, i64), Status> {
 }
 
 #[tonic::async_trait]
-impl auth_server::Auth for Auth {
+impl auth_server::Auth for AuthService {
     async fn sign_in(&self, request: Request<LoginRequest>) -> Result<Response<JwtPair>, Status> {
-        let pool = request
-            .extensions()
-            .get::<Pool<Postgres>>()
-            .unwrap()
-            .clone();
+        let (_, extensions, mut credentials) = request.into_parts();
+        let pool = extensions.get::<Pool<Postgres>>().unwrap();
 
-        let credentials = request.into_inner();
+        //Make email lowercase to store in Database
+        credentials.email = credentials.email.to_lowercase();
+
         let row: Option<(i32, String, String)> =
             sqlx::query_as("SELECT id, hashed_password, email FROM players WHERE email = $1;")
                 .bind(&credentials.email)
-                .fetch_optional(&pool)
+                .fetch_optional(pool)
                 .await
                 .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
         if let Some((id, hashed_password, email)) = row {
@@ -85,7 +84,7 @@ impl auth_server::Auth for Auth {
             sqlx::query("UPDATE players SET refresh_token = $1 WHERE id = $2")
                 .bind(&refresh_token)
                 .bind(id)
-                .execute(&pool)
+                .execute(pool)
                 .await
                 .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
 
@@ -103,17 +102,16 @@ impl auth_server::Auth for Auth {
     }
 
     async fn sign_up(&self, request: Request<LoginRequest>) -> Result<Response<JwtPair>, Status> {
-        let pool = request
-            .extensions()
-            .get::<Pool<Postgres>>()
-            .unwrap()
-            .clone();
+        let (_, extensions, mut credentials) = request.into_parts();
 
-        let credentials = request.into_inner();
+        let pool = extensions.get::<Pool<Postgres>>().unwrap();
+
+        //Make email lowercase to store in Database
+        credentials.email = credentials.email.to_lowercase();
 
         let row = sqlx::query("SELECT null FROM players WHERE email = $1;")
             .bind(&credentials.email)
-            .fetch_optional(&pool)
+            .fetch_optional(pool)
             .await
             .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
 
@@ -155,7 +153,7 @@ impl auth_server::Auth for Auth {
         .bind(credentials.email)
         .bind(hashed_password.to_string())
         .bind(&refresh_token)
-        .execute(&pool)
+        .execute(pool)
         .await
         .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
 
@@ -167,13 +165,10 @@ impl auth_server::Auth for Auth {
     }
 
     async fn obtain_jwt_pair(&self, request: Request<Token>) -> Result<Response<JwtPair>, Status> {
-        let pool = request
-            .extensions()
-            .get::<Pool<Postgres>>()
-            .unwrap()
-            .clone();
+        let (_, extensions, token) = request.into_parts();
 
-        let token = request.into_inner();
+        let pool = extensions.get::<Pool<Postgres>>().unwrap();
+
         let claims = jsonwebtoken::decode::<Claims>(
             &token.token,
             &DecodingKey::from_base64_secret(&std::env::var("JWT_SECRET").unwrap()).unwrap(),
@@ -191,7 +186,7 @@ impl auth_server::Auth for Auth {
         .bind(&refresh_token)
         .bind(&claims.email)
         .bind(&token.token)
-        .execute(&pool)
+        .execute(pool)
         .await
         .map_err(|e| Status::data_loss(format!("Database error: {e}")))?
         .rows_affected()

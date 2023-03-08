@@ -45,3 +45,49 @@ async fn test_token_rotation(pool: PgPool) -> Result<(), Box<dyn std::error::Err
 
     Ok(())
 }
+
+#[sqlx::test]
+async fn test_upper_case_email(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
+    let channel = get_test_channel(pool.clone()).await?;
+    let mut client = AuthClient::new(channel);
+    let user_credentials = LoginRequest {
+        email: "test@gmail.com".to_string(),
+        password: "TestPass".to_string(),
+    };
+    let request = Request::new(user_credentials);
+
+    //User logs in
+    assert!(client.sign_up(request).await.is_ok());
+
+    let user_credentials = LoginRequest {
+        email: "TeSt@gmAil.com".to_string(),
+        password: "TestPass".to_string(),
+    };
+    let request = Request::new(user_credentials);
+
+    //He can sign in using upper case
+    assert!(client.sign_in(request).await.is_ok());
+
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_two_times_sign_up(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
+    let channel = get_test_channel(pool.clone()).await?;
+    let mut client = AuthClient::new(channel);
+    let user_credentials = LoginRequest {
+        email: "test@gmail.com".to_string(),
+        password: "TestPass".to_string(),
+    };
+    let request = Request::new(user_credentials.clone());
+
+    //User logs in
+    assert!(client.sign_up(request).await.is_ok());
+
+    let request = Request::new(user_credentials);
+
+    //He can sign in using upper case
+    assert!(client.sign_up(request).await.is_err());
+
+    Ok(())
+}
