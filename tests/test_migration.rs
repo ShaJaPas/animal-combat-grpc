@@ -12,12 +12,12 @@ async fn test_stair_migrations(pool: PgPool) -> Result<(), Box<dyn std::error::E
         };
 
         for index in [up, down, up] {
-            for x in MIGRATOR.migrations[index]
+            for migration in MIGRATOR.migrations[index]
                 .sql
-                .split(";")
+                .split(';')
                 .filter(|f| !f.is_empty())
             {
-                sqlx::query(&x).execute(&pool).await?;
+                sqlx::query(migration).execute(&pool).await?;
             }
         }
     }
