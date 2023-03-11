@@ -1,10 +1,26 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
+
 package clans;
 
 service Clan {
     rpc RecommendedClans (RecommenedClansRequest) returns (ShortClanInfoList);
     rpc SearchClans (SearchClansRequest) returns (ShortClanInfoList);
+    rpc CreateClan (ClanInfo) returns (google.protobuf.Empty);
+}
+
+enum ClanType {
+    Closed = 0;
+    Open = 1;
+    InviteOnly = 2;
+}
+
+message ClanInfo {
+    string name = 1;
+    optional string description = 2;
+    int32 minGlory = 3;
+    ClanType clanType = 4;
 }
 
 message RecommenedClansRequest {

@@ -1,4 +1,10 @@
-use animal_combat_grpc::services::auth::{AuthServer, AuthService};
+use animal_combat_grpc::{
+    jwt_interceptor,
+    services::{
+        auth::{AuthServer, AuthService},
+        clans::{ClanServer, ClanService},
+    },
+};
 use sqlx::PgPool;
 
 use std::time::Duration;
@@ -8,10 +14,13 @@ use tonic::{
 };
 use tower::service_fn;
 
+//NEVER FORGET TO UPDATE THIS (ADD NEW SERVICES)
 pub async fn get_test_channel(pool: PgPool) -> Result<Channel, Box<dyn std::error::Error>> {
     let (client, server) = tokio::io::duplex(1024);
 
+    //Create services
     let auth = AuthService::default();
+    let clans = ClanService::default();
 
     let layer = tower::ServiceBuilder::new()
         .timeout(Duration::from_secs(30))
@@ -25,6 +34,7 @@ pub async fn get_test_channel(pool: PgPool) -> Result<Channel, Box<dyn std::erro
         Server::builder()
             .layer(layer)
             .add_service(AuthServer::new(auth))
+            .add_service(ClanServer::with_interceptor(clans, jwt_interceptor))
             .serve_with_incoming(futures::stream::iter(vec![Ok::<_, std::io::Error>(server)]))
             .await
     });

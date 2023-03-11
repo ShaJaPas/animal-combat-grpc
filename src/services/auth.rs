@@ -67,26 +67,35 @@ impl auth_server::Auth for AuthService {
         //Make email lowercase to store in Database
         credentials.email = credentials.email.to_lowercase();
 
-        let row: Option<(i32, String, String)> =
-            sqlx::query_as("SELECT id, hashed_password, email FROM players WHERE email = $1;")
-                .bind(&credentials.email)
-                .fetch_optional(pool)
-                .await
-                .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
+        let row: Option<(i32, String, String)> = sqlx::query_as(
+            "SELECT id,
+                   hashed_password,
+                   email
+            FROM players
+            WHERE email = $1",
+        )
+        .bind(&credentials.email)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
         if let Some((id, hashed_password, email)) = row {
             let hash = PasswordHash::new(&hashed_password).unwrap();
             let argon2 = Argon2::default();
             argon2
                 .verify_password(credentials.password.as_bytes(), &hash)
-                .map_err(|_| Status::unauthenticated("Password validation failed"))?;
+                .map_err(|_| Status::permission_denied("Password validation failed"))?;
 
             let (access_token, refresh_token, access_token_expiry) = generate_jwt_pair(email)?;
-            sqlx::query("UPDATE players SET refresh_token = $1 WHERE id = $2")
-                .bind(&refresh_token)
-                .bind(id)
-                .execute(pool)
-                .await
-                .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
+            sqlx::query(
+                "UPDATE players
+                SET refresh_token = $1
+                WHERE id = $2",
+            )
+            .bind(&refresh_token)
+            .bind(id)
+            .execute(pool)
+            .await
+            .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
 
             return Ok(Response::new(JwtPair {
                 access_token,
@@ -109,13 +118,17 @@ impl auth_server::Auth for AuthService {
         //Make email lowercase to store in Database
         credentials.email = credentials.email.to_lowercase();
 
-        let row = sqlx::query("SELECT null FROM players WHERE email = $1;")
-            .bind(&credentials.email)
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
-
-        if row.is_some() {
+        if sqlx::query(
+            "SELECT NULL
+            FROM players
+            WHERE email = $1",
+        )
+        .bind(&credentials.email)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| Status::data_loss(format!("Database error: {e}")))?
+        .is_some()
+        {
             return Err(Status::already_exists(format!(
                 "Player with email '{}' already exists",
                 credentials.email
@@ -148,7 +161,8 @@ impl auth_server::Auth for AuthService {
             .map_err(|e| Status::internal(format!("Password hashing failed: {e}")))?;
 
         sqlx::query(
-            "INSERT INTO players (email, hashed_password, refresh_token) VALUES ($1, $2, $3)",
+            "INSERT INTO players (email, hashed_password, refresh_token)
+            VALUES ($1, $2, $3)",
         )
         .bind(credentials.email)
         .bind(hashed_password.to_string())
@@ -181,7 +195,10 @@ impl auth_server::Auth for AuthService {
             generate_jwt_pair(claims.email.clone())?;
 
         if sqlx::query(
-            "UPDATE players SET refresh_token = $1 WHERE email = $2 AND refresh_token = $3",
+            "UPDATE players
+            SET refresh_token = $1
+            WHERE email = $2
+              AND refresh_token = $3",
         )
         .bind(&refresh_token)
         .bind(&claims.email)
