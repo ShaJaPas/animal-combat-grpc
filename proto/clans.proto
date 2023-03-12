@@ -8,6 +8,8 @@ service Clan {
     rpc RecommendedClans (RecommenedClansRequest) returns (ShortClanInfoList);
     rpc SearchClans (SearchClansRequest) returns (ShortClanInfoList);
     rpc CreateClan (ClanInfo) returns (google.protobuf.Empty);
+    rpc JoinClan (ClanJoin) returns (google.protobuf.Empty);
+    rpc LeaveClan (google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 enum ClanType {
@@ -45,5 +47,9 @@ message ShortClanInfo {
 message ShortClanInfoList {
     int32 offset = 1;
     repeated ShortClanInfo infos = 2;
+}
+
+message ClanJoin {
+    int32 id = 1;
 }
 
