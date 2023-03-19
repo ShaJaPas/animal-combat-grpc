@@ -1,21 +1,52 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 package clans;
 
 service Clan {
-    rpc RecommendedClans (RecommenedClansRequest) returns (ShortClanInfoList);
+    rpc RecommendedClans (Pagination) returns (ShortClanInfoList);
     rpc SearchClans (SearchClansRequest) returns (ShortClanInfoList);
+    rpc GetClanInfo (ClanId) returns (ClanFullInfo);
     rpc CreateClan (ClanInfo) returns (google.protobuf.Empty);
-    rpc JoinClan (ClanJoin) returns (google.protobuf.Empty);
+    rpc JoinClan (ClanId) returns (google.protobuf.Empty);
     rpc LeaveClan (google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc SendMessage (TextMessage) returns (google.protobuf.Empty);
+    rpc ReceiveMessage (google.protobuf.Empty) returns (stream ClanMesage);
+    rpc GetMessages (Pagination) returns (ClanMessages);
+}
+
+message TextMessage {
+    string text = 1;
+}
+
+enum MessageType {
+    SystemPositive = 0;
+    SystemNegative = 1;
+    Player = 2;
+}
+
+message ClanMessages {
+    int32 offset = 1;
+    repeated ClanMesage messages = 2;
+}
+
+message ClanMesage {
+    google.protobuf.Timestamp time = 1;
+    TextMessage message = 2;
+    MessageType messageType = 3;
+    ClanMember sender = 4;
 }
 
 enum ClanType {
     Closed = 0;
     Open = 1;
     InviteOnly = 2;
+}
+
+message ClanId {
+    int32 id = 1;
 }
 
 message ClanInfo {
@@ -25,9 +56,27 @@ message ClanInfo {
     ClanType clanType = 4;
 }
 
-message RecommenedClansRequest {
-    int32 offset = 1;
+message ClanMember {
+    bool creator = 1;
+    int32 glory = 2;
+    optional string nickname = 3;
+    int32 playerId = 4;
+}
+
+message Pagination {
+    optional int32 offset = 1;
     int32 limit = 2;
+}
+
+message ClanFullInfo {
+    int32 id = 1;
+    string name = 2;
+    int32 maxMembers = 3;
+    int32 averageTrophies = 4;
+    optional string description = 5;
+    int32 minGlory = 6;
+    ClanType clanType = 7;
+    repeated ClanMember members = 8;
 }
 
 message SearchClansRequest {

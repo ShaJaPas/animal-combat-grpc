@@ -9,6 +9,7 @@ CREATE TABLE players
     coins INTEGER NOT NULL DEFAULT 0,
     crystals INTEGER NOT NULL DEFAULT 0,
     glory INTEGER NOT NULL DEFAULT 0,
+    level INTEGER NOT NULL DEFAULT 1,
     clan_id INTEGER NULL,
     refresh_token TEXT NOT NULL
 )

@@ -35,7 +35,7 @@ async fn test_token_rotation(pool: PgPool) -> Result<(), Box<dyn std::error::Err
 
     //Then user login using his credentials
     let request = Request::new(user_credentials);
-    assert!(client.sign_in(request).await.is_ok());
+    client.sign_in(request).await?;
 
     //After that, hacker's refresh is useless
     let request = Request::new(Token {
@@ -57,7 +57,7 @@ async fn test_upper_case_email(pool: PgPool) -> Result<(), Box<dyn std::error::E
     let request = Request::new(user_credentials);
 
     //User logs in
-    assert!(client.sign_up(request).await.is_ok());
+    client.sign_up(request).await?;
 
     let user_credentials = LoginRequest {
         email: "TeSt@gmAil.com".to_string(),
@@ -66,7 +66,7 @@ async fn test_upper_case_email(pool: PgPool) -> Result<(), Box<dyn std::error::E
     let request = Request::new(user_credentials);
 
     //He can sign in using upper case
-    assert!(client.sign_in(request).await.is_ok());
+    client.sign_in(request).await?;
 
     Ok(())
 }
@@ -82,7 +82,7 @@ async fn test_two_times_sign_up(pool: PgPool) -> Result<(), Box<dyn std::error::
     let request = Request::new(user_credentials.clone());
 
     //User logs in
-    assert!(client.sign_up(request).await.is_ok());
+    client.sign_up(request).await?;
 
     let request = Request::new(user_credentials);
 
@@ -103,7 +103,7 @@ async fn test_wrong_email_and_password(pool: PgPool) -> Result<(), Box<dyn std::
     let request = Request::new(user_credentials);
 
     //User logs in
-    assert!(client.sign_up(request).await.is_ok());
+    client.sign_up(request).await?;
 
     let user_credentials = LoginRequest {
         email: "test1@gmail.com".to_string(),

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package players;
+
+service Player {
+    rpc GetProfile (google.protobuf.Empty) returns (PlayerProfile);
+}
+
+message PlayerProfile {
+    optional string nickname = 1;
+    int32 coins = 2;
+    int32 crystals = 3;
+    int32 glory = 4;
+    optional string clanName = 5;
+    int32 xp = 6;
+    int32 maxXP = 7;
+    int32 level = 8;
+    optional int32 clan_id = 9;
+    int32 id = 10;
+}

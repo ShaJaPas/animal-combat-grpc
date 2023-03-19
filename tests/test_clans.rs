@@ -3,8 +3,8 @@ mod common;
 use animal_combat_grpc::services::{
     auth::{auth_client::AuthClient, JwtPair, LoginRequest},
     clans::{
-        clan_client::ClanClient, ClanInfo, ClanJoin, ClanType, RecommenedClansRequest,
-        SearchClansRequest,
+        clan_client::ClanClient, ClanId, ClanInfo, ClanType, Pagination, SearchClansRequest,
+        TextMessage,
     },
 };
 use sqlx::PgPool;
@@ -57,7 +57,8 @@ async fn test_clan_creation(pool: PgPool) -> Result<(), Box<dyn std::error::Erro
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
-    assert!(client.create_clan(request).await.is_ok());
+    client.create_clan(request).await?;
+
     let (coins,): (i32,) = sqlx::query_as("SELECT coins from players")
         .fetch_one(&pool)
         .await?;
@@ -88,7 +89,7 @@ async fn test_clan_exists_in_creation(pool: PgPool) -> Result<(), Box<dyn std::e
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
-    assert!(client.create_clan(request).await.is_ok());
+    client.create_clan(request).await?;
 
     sqlx::query("UPDATE players SET coins = 1000")
         .execute(&pool)
@@ -131,10 +132,19 @@ async fn test_clan_create_constraints(pool: PgPool) -> Result<(), Box<dyn std::e
     });
     assert!(client.create_clan(request).await.err().unwrap().code() == Code::PermissionDenied);
 
-    //min_glory constraint
+    //description constraint
     let request = Request::new(ClanInfo {
         name: "Test".to_owned(),
         description: Some("1".repeat(256)),
+        min_glory: 0,
+        clan_type: ClanType::Open.into(),
+    });
+    assert!(client.create_clan(request).await.err().unwrap().code() == Code::PermissionDenied);
+
+    //name constraint
+    let request = Request::new(ClanInfo {
+        name: "".to_owned(),
+        description: None,
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
@@ -166,7 +176,7 @@ async fn test_create_clan_already_in_clan(pool: PgPool) -> Result<(), Box<dyn st
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
-    assert!(client.create_clan(request).await.is_ok());
+    client.create_clan(request).await?;
 
     //Cannot create another clan
     let request = Request::new(ClanInfo {
@@ -201,7 +211,7 @@ async fn test_clan_join(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> 
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
-    assert!(client.create_clan(request).await.is_ok());
+    client.create_clan(request).await?;
 
     let channel = get_test_channel(pool.clone()).await?;
     let user_response = create_user(&pool, "test2@gmail.com".to_owned()).await?;
@@ -212,11 +222,11 @@ async fn test_clan_join(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> 
         Ok(req)
     });
 
-    let request = Request::new(ClanJoin { id: 1 });
-    assert!(client.join_clan(request).await.is_ok());
+    let request = Request::new(ClanId { id: 1 });
+    client.join_clan(request).await?;
 
     //Already in clan
-    let request = Request::new(ClanJoin { id: 1 });
+    let request = Request::new(ClanId { id: 1 });
     assert!(client.join_clan(request).await.err().unwrap().code() == Code::PermissionDenied);
 
     let channel = get_test_channel(pool.clone()).await?;
@@ -229,7 +239,7 @@ async fn test_clan_join(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> 
     });
 
     //Clan does not exists
-    let request = Request::new(ClanJoin { id: 2 });
+    let request = Request::new(ClanId { id: 2 });
     assert!(client.join_clan(request).await.err().unwrap().code() == Code::NotFound);
 
     sqlx::query("UPDATE clans SET type = 'Closed'")
@@ -237,7 +247,7 @@ async fn test_clan_join(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> 
         .await?;
 
     //Clan is closed
-    let request = Request::new(ClanJoin { id: 1 });
+    let request = Request::new(ClanId { id: 1 });
     assert!(client.join_clan(request).await.err().unwrap().code() == Code::PermissionDenied);
 
     sqlx::query("UPDATE clans SET type = 'Open', min_glory = 300")
@@ -245,7 +255,7 @@ async fn test_clan_join(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> 
         .await?;
 
     //PLayer has lower glory
-    let request = Request::new(ClanJoin { id: 1 });
+    let request = Request::new(ClanId { id: 1 });
     assert!(client.join_clan(request).await.err().unwrap().code() == Code::PermissionDenied);
     Ok(())
 }
@@ -271,7 +281,7 @@ async fn test_clan_leave(pool: PgPool) -> Result<(), Box<dyn std::error::Error>>
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
-    assert!(client.create_clan(request).await.is_ok());
+    client.create_clan(request).await?;
 
     let channel = get_test_channel(pool.clone()).await?;
     let user_response = create_user(&pool, "test2@gmail.com".to_owned()).await?;
@@ -286,16 +296,16 @@ async fn test_clan_leave(pool: PgPool) -> Result<(), Box<dyn std::error::Error>>
     let request = Request::new(());
     assert!(client.leave_clan(request).await.err().unwrap().code() == Code::PermissionDenied);
 
-    let request = Request::new(ClanJoin { id: 1 });
-    assert!(client.join_clan(request).await.is_ok());
+    let request = Request::new(ClanId { id: 1 });
+    client.join_clan(request).await?;
 
     //Leave clan
     let request = Request::new(());
-    assert!(client.leave_clan(request).await.is_ok());
+    client.leave_clan(request).await?;
 
     //Test if he can join again
-    let request = Request::new(ClanJoin { id: 1 });
-    assert!(client.join_clan(request).await.is_ok());
+    let request = Request::new(ClanId { id: 1 });
+    client.join_clan(request).await?;
 
     Ok(())
 }
@@ -319,7 +329,7 @@ async fn test_search_clans(pool: PgPool) -> Result<(), Box<dyn std::error::Error
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
-    assert!(client.create_clan(request).await.is_ok());
+    client.create_clan(request).await?;
 
     let channel = get_test_channel(pool.clone()).await?;
     let user_response = create_user(&pool, "test2@gmail.com".to_owned()).await?;
@@ -338,7 +348,7 @@ async fn test_search_clans(pool: PgPool) -> Result<(), Box<dyn std::error::Error
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
-    assert!(client.create_clan(request).await.is_ok());
+    client.create_clan(request).await?;
 
     let request = Request::new(SearchClansRequest {
         offset: 0,
@@ -388,7 +398,7 @@ async fn test_recommended_clans(pool: PgPool) -> Result<(), Box<dyn std::error::
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
-    assert!(client.create_clan(request).await.is_ok());
+    client.create_clan(request).await?;
 
     let channel = get_test_channel(pool.clone()).await?;
     let user_response = create_user(&pool, "test2@gmail.com".to_owned()).await?;
@@ -408,10 +418,10 @@ async fn test_recommended_clans(pool: PgPool) -> Result<(), Box<dyn std::error::
         min_glory: 0,
         clan_type: ClanType::Open.into(),
     });
-    assert!(client.create_clan(request).await.is_ok());
+    client.create_clan(request).await?;
 
-    let request = Request::new(RecommenedClansRequest {
-        offset: 0,
+    let request = Request::new(Pagination {
+        offset: None,
         limit: 10,
     });
     assert!(
@@ -428,8 +438,8 @@ async fn test_recommended_clans(pool: PgPool) -> Result<(), Box<dyn std::error::
         .execute(&pool)
         .await?;
 
-    let request = Request::new(RecommenedClansRequest {
-        offset: 0,
+    let request = Request::new(Pagination {
+        offset: None,
         limit: 10,
     });
     assert!(
@@ -442,8 +452,8 @@ async fn test_recommended_clans(pool: PgPool) -> Result<(), Box<dyn std::error::
             == 2
     );
 
-    let request = Request::new(RecommenedClansRequest {
-        offset: 1,
+    let request = Request::new(Pagination {
+        offset: Some(1),
         limit: 10,
     });
     assert!(
@@ -456,8 +466,8 @@ async fn test_recommended_clans(pool: PgPool) -> Result<(), Box<dyn std::error::
             == 1
     );
 
-    let request = Request::new(RecommenedClansRequest {
-        offset: 1,
+    let request = Request::new(Pagination {
+        offset: Some(1),
         limit: 0,
     });
     assert!(client
@@ -466,5 +476,213 @@ async fn test_recommended_clans(pool: PgPool) -> Result<(), Box<dyn std::error::
         .into_inner()
         .infos
         .is_empty());
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_clan_info(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
+    let channel = get_test_channel(pool.clone()).await?;
+    let user_response = create_user(&pool, "test@gmail.com".to_owned()).await?;
+
+    let mut client = ClanClient::with_interceptor(channel, move |mut req: Request<()>| {
+        req.metadata_mut()
+            .insert("authorization", user_response.access_token.parse().unwrap());
+        Ok(req)
+    });
+    sqlx::query("UPDATE players SET coins = 1000, glory = 49")
+        .execute(&pool)
+        .await?;
+    let request = Request::new(ClanInfo {
+        name: "Test".to_owned(),
+        description: None,
+        min_glory: 0,
+        clan_type: ClanType::Open.into(),
+    });
+    client.create_clan(request).await?;
+
+    let channel = get_test_channel(pool.clone()).await?;
+    let user_response = create_user(&pool, "test2@gmail.com".to_owned()).await?;
+
+    let mut client = ClanClient::with_interceptor(channel, move |mut req: Request<()>| {
+        req.metadata_mut()
+            .insert("authorization", user_response.access_token.parse().unwrap());
+        Ok(req)
+    });
+
+    client.join_clan(Request::new(ClanId { id: 1 })).await?;
+
+    assert!(
+        client
+            .get_clan_info(Request::new(ClanId { id: 2 }))
+            .await
+            .err()
+            .unwrap()
+            .code()
+            == Code::NotFound
+    );
+    assert!(
+        client
+            .get_clan_info(Request::new(ClanId { id: 1 }))
+            .await?
+            .into_inner()
+            .members
+            .len()
+            == 2
+    );
+
+    assert!(
+        client
+            .get_clan_info(Request::new(ClanId { id: 1 }))
+            .await?
+            .into_inner()
+            .members[0]
+            .glory
+            == 49
+    );
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_send_message(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
+    let channel = get_test_channel(pool.clone()).await?;
+    let user_response = create_user(&pool, "test@gmail.com".to_owned()).await?;
+
+    let mut client = ClanClient::with_interceptor(channel, move |mut req: Request<()>| {
+        req.metadata_mut()
+            .insert("authorization", user_response.access_token.parse().unwrap());
+        Ok(req)
+    });
+    sqlx::query("UPDATE players SET coins = 1000, glory = 49")
+        .execute(&pool)
+        .await?;
+
+    assert!(
+        client
+            .send_message(Request::new(TextMessage {
+                text: "  ".to_string()
+            }))
+            .await
+            .err()
+            .unwrap()
+            .code()
+            == Code::PermissionDenied
+    );
+
+    assert!(
+        client
+            .send_message(Request::new(TextMessage {
+                text: "Some message".to_string(),
+            }))
+            .await
+            .err()
+            .unwrap()
+            .code()
+            == Code::PermissionDenied
+    );
+
+    let request = Request::new(ClanInfo {
+        name: "Test".to_owned(),
+        description: None,
+        min_glory: 0,
+        clan_type: ClanType::Open.into(),
+    });
+    client.create_clan(request).await?;
+
+    client
+        .send_message(Request::new(TextMessage {
+            text: "Some message".to_string(),
+        }))
+        .await?;
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_get_messages(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
+    let channel = get_test_channel(pool.clone()).await?;
+    let user_response = create_user(&pool, "test@gmail.com".to_owned()).await?;
+
+    let mut client = ClanClient::with_interceptor(channel, move |mut req: Request<()>| {
+        req.metadata_mut()
+            .insert("authorization", user_response.access_token.parse().unwrap());
+        Ok(req)
+    });
+    sqlx::query("UPDATE players SET coins = 1000, glory = 49")
+        .execute(&pool)
+        .await?;
+
+    let request = Request::new(ClanInfo {
+        name: "Test".to_owned(),
+        description: None,
+        min_glory: 0,
+        clan_type: ClanType::Open.into(),
+    });
+    client.create_clan(request).await?;
+
+    assert!(client
+        .get_messages(Request::new(Pagination {
+            offset: None,
+            limit: 10
+        }))
+        .await?
+        .into_inner()
+        .messages
+        .is_empty());
+
+    client
+        .send_message(Request::new(TextMessage {
+            text: "Some message".to_string(),
+        }))
+        .await?;
+    client
+        .send_message(Request::new(TextMessage {
+            text: "Another message".to_string(),
+        }))
+        .await?;
+
+    assert!(
+        client
+            .get_messages(Request::new(Pagination {
+                offset: None,
+                limit: 10
+            }))
+            .await?
+            .into_inner()
+            .messages
+            .len()
+            == 2
+    );
+
+    assert!(
+        client
+            .get_messages(Request::new(Pagination {
+                offset: Some(0),
+                limit: 1
+            }))
+            .await?
+            .into_inner()
+            .messages[0]
+            .message
+            .as_ref()
+            .unwrap()
+            .text
+            == "Some message"
+    );
+
+    assert!(
+        client
+            .get_messages(Request::new(Pagination {
+                offset: None,
+                limit: 1
+            }))
+            .await?
+            .into_inner()
+            .messages[0]
+            .message
+            .as_ref()
+            .unwrap()
+            .text
+            == "Another message"
+    );
+
     Ok(())
 }

@@ -15,20 +15,20 @@ tonic::include_proto!("auth");
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub email: String,
+    pub id: i32,
     exp: i64,
 }
 
-const ACCESS_TOKEN_EXP_TIME: i64 = 1800; //30min
-const REFRESH_TOKEN_EXP_TIME: i64 = 86400; //1 day
+const ACCESS_TOKEN_EXP_TIME: i64 = 30 * 60; //30min
+const REFRESH_TOKEN_EXP_TIME: i64 = 60 * 60 * 24 * 30; //30 days
 
 #[derive(Default)]
 pub struct AuthService;
 
 #[inline]
-fn generate_jwt_pair(email: String) -> Result<(String, String, i64), Status> {
+fn generate_jwt_pair(id: i32) -> Result<(String, String, i64), Status> {
     let mut claims = Claims {
-        email,
+        id,
         exp: Utc::now().timestamp() + REFRESH_TOKEN_EXP_TIME,
     };
     let header = Header {
@@ -67,10 +67,9 @@ impl auth_server::Auth for AuthService {
         //Make email lowercase to store in Database
         credentials.email = credentials.email.to_lowercase();
 
-        let row: Option<(i32, String, String)> = sqlx::query_as(
+        let row: Option<(i32, String)> = sqlx::query_as(
             "SELECT id,
-                   hashed_password,
-                   email
+                   hashed_password
             FROM players
             WHERE email = $1",
         )
@@ -78,14 +77,14 @@ impl auth_server::Auth for AuthService {
         .fetch_optional(pool)
         .await
         .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
-        if let Some((id, hashed_password, email)) = row {
+        if let Some((id, hashed_password)) = row {
             let hash = PasswordHash::new(&hashed_password).unwrap();
             let argon2 = Argon2::default();
             argon2
                 .verify_password(credentials.password.as_bytes(), &hash)
                 .map_err(|_| Status::permission_denied("Password validation failed"))?;
 
-            let (access_token, refresh_token, access_token_expiry) = generate_jwt_pair(email)?;
+            let (access_token, refresh_token, access_token_expiry) = generate_jwt_pair(id)?;
             sqlx::query(
                 "UPDATE players
                 SET refresh_token = $1
@@ -151,25 +150,30 @@ impl auth_server::Auth for AuthService {
             ));
         }
 
-        let (access_token, refresh_token, access_token_expiry) =
-            generate_jwt_pair(credentials.email.clone())?;
-
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         let hashed_password = argon2
             .hash_password(credentials.password.as_bytes(), &salt)
             .map_err(|e| Status::internal(format!("Password hashing failed: {e}")))?;
 
-        sqlx::query(
+        let (id,): (i32,) = sqlx::query_as(
             "INSERT INTO players (email, hashed_password, refresh_token)
-            VALUES ($1, $2, $3)",
+            VALUES ($1, $2, '') RETURNING id",
         )
         .bind(credentials.email)
         .bind(hashed_password.to_string())
-        .bind(&refresh_token)
-        .execute(pool)
+        .fetch_one(pool)
         .await
         .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
+
+        let (access_token, refresh_token, access_token_expiry) = generate_jwt_pair(id)?;
+
+        sqlx::query("UPDATE players SET refresh_token = $2 WHERE id = $1")
+            .bind(id)
+            .bind(&refresh_token)
+            .execute(pool)
+            .await
+            .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
 
         Ok(Response::new(JwtPair {
             access_token,
@@ -191,17 +195,16 @@ impl auth_server::Auth for AuthService {
         .map_err(|_| Status::unauthenticated("Token invalid or expired"))?
         .claims;
 
-        let (access_token, refresh_token, access_token_expiry) =
-            generate_jwt_pair(claims.email.clone())?;
+        let (access_token, refresh_token, access_token_expiry) = generate_jwt_pair(claims.id)?;
 
         if sqlx::query(
             "UPDATE players
             SET refresh_token = $1
-            WHERE email = $2
+            WHERE id = $2
               AND refresh_token = $3",
         )
         .bind(&refresh_token)
-        .bind(&claims.email)
+        .bind(claims.id)
         .bind(&token.token)
         .execute(pool)
         .await

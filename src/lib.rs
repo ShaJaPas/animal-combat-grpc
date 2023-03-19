@@ -1,6 +1,8 @@
 pub mod services;
 
+use crate::services::clans::ClanMesage;
 use jsonwebtoken::{DecodingKey, Validation};
+use tokio::sync::broadcast::{Receiver, Sender};
 use tonic::{Request, Status};
 
 //Put this in any service, except Auth
@@ -25,4 +27,15 @@ pub fn jwt_interceptor(mut req: Request<()>) -> Result<Request<()>, Status> {
         ));
     }
     Ok(req)
+}
+
+pub struct ClanBroadcast(
+    pub Sender<(i32, ClanMesage)>,
+    pub Receiver<(i32, ClanMesage)>,
+);
+
+impl Clone for ClanBroadcast {
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), self.0.subscribe())
+    }
 }
