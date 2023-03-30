@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package battle;
+
+service Battle {
+    rpc JoinMatchmaking (google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc LeaveMatchmaking (google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc FindMatch (google.protobuf.Empty) returns (stream MatchFound);
+}
+
+message MatchFound {
+    int32 opponent_id = 1;
+}

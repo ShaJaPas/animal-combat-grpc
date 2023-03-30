@@ -1,19 +1,19 @@
 use std::time::Duration;
 
 use animal_combat_grpc::{
-    jwt_interceptor,
+    jwt_interceptor, run_matchmaking_loop,
     services::{
         auth::{AuthServer, AuthService},
-        clans::{ClanMesage, ClanServer, ClanService},
+        battle::{BattleServer, BattleService},
+        clans::{ClanServer, ClanService},
         players::{PlayerServer, PlayerService},
     },
-    ClanBroadcast,
 };
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions,
 };
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use tonic::{
     transport::{Body, Server},
     Request,
@@ -31,7 +31,9 @@ use tracing::{log::LevelFilter, Level};
 #[tokio::main()]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    tracing_subscriber::fmt()
+        .with_max_level(Level::ERROR)
+        .init();
 
     let mut connect_options = std::env::var("DATABASE_URL")
         .unwrap()
@@ -49,13 +51,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_serving::<AuthServer<AuthService>>()
         .await;
 
-    let (snd, rcv) = broadcast::channel::<(i32, ClanMesage)>(16);
-    let clan_broadcast = ClanBroadcast(snd, rcv);
-
     // Create services
     let auth = AuthService::default();
     let clans = ClanService::default();
     let players = PlayerService::default();
+    let (tx, rx) = mpsc::channel(128);
+    let (tx2, rx2) = broadcast::channel(128);
+    tokio::spawn(run_matchmaking_loop(rx, tx2));
+    let battle = BattleService {
+        sender: tx,
+        receiver: rx2,
+    };
 
     // Add cors support
     let cors_layer = CorsLayer::new()
@@ -94,7 +100,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .timeout(Duration::from_secs(30))
         .layer(tonic::service::interceptor(move |mut req: Request<()>| {
             req.extensions_mut().insert(pool.clone());
-            req.extensions_mut().insert(clan_broadcast.clone());
             Ok(req)
         }))
         .into_inner();
@@ -109,6 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_service(AuthServer::new(auth))
         .add_service(ClanServer::with_interceptor(clans, jwt_interceptor))
         .add_service(PlayerServer::with_interceptor(players, jwt_interceptor))
+        .add_service(BattleServer::with_interceptor(battle, jwt_interceptor))
         .serve(addr)
         .await?;
 

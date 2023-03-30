@@ -1,10 +1,12 @@
-use crate::ClanBroadcast;
 use chrono::{DateTime, Utc};
 use futures::Stream;
 use prost_types::Timestamp;
 use sqlx::{Pool, Postgres};
 use std::pin::Pin;
-use tokio::sync::mpsc;
+use tokio::sync::{
+    broadcast::{self, Receiver, Sender},
+    mpsc,
+};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
@@ -17,8 +19,23 @@ const MAX_MEMBERS: i32 = 50;
 
 tonic::include_proto!("clans");
 
-#[derive(Default)]
-pub struct ClanService;
+pub struct ClanService {
+    sender: Sender<(i32, ClanMesage)>,
+    receiver: Receiver<(i32, ClanMesage)>,
+}
+
+impl ClanService {
+    pub fn new() -> Self {
+        let (sender, receiver) = broadcast::channel(16);
+        Self { sender, receiver }
+    }
+}
+
+impl Default for ClanService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[derive(sqlx::Type, PartialEq)]
 #[sqlx(type_name = "clan_type")]
@@ -337,7 +354,6 @@ impl clan_server::Clan for ClanService {
         let (_, extensions, request) = request.into_parts();
         let pool = extensions.get::<Pool<Postgres>>().unwrap();
         let credetials = extensions.get::<Claims>().unwrap();
-        let clans_broadcast = extensions.get::<ClanBroadcast>().unwrap();
 
         if sqlx::query(
             "SELECT NULL
@@ -423,8 +439,7 @@ impl clan_server::Clan for ClanService {
             .execute(pool)
             .await
             .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
-            clans_broadcast
-                .0
+            self.sender
                 .send((
                     request.id,
                     ClanMesage {
@@ -449,7 +464,6 @@ impl clan_server::Clan for ClanService {
         let (_, extensions, _) = request.into_parts();
         let pool = extensions.get::<Pool<Postgres>>().unwrap();
         let credetials = extensions.get::<Claims>().unwrap();
-        let clans_broadcast = extensions.get::<ClanBroadcast>().unwrap();
 
         let (clan_id, nickname): (Option<i32>, Option<String>) = sqlx::query_as(
             "SELECT clan_id, nickname
@@ -497,8 +511,7 @@ impl clan_server::Clan for ClanService {
         .await
         .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
 
-        clans_broadcast
-            .0
+        self.sender
             .send((
                 clan_id.unwrap(),
                 ClanMesage {
@@ -520,7 +533,6 @@ impl clan_server::Clan for ClanService {
         let (_, extensions, message) = request.into_parts();
         let pool = extensions.get::<Pool<Postgres>>().unwrap();
         let credetials = extensions.get::<Claims>().unwrap();
-        let clans_broadcast = extensions.get::<ClanBroadcast>().unwrap();
 
         if message.text.trim().is_empty() {
             return Err(Status::permission_denied("Empty messages are forbidden"));
@@ -569,8 +581,7 @@ impl clan_server::Clan for ClanService {
             .await
             .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
 
-            clans_broadcast
-                .0
+            self.sender
                 .send((
                     clan_id.unwrap(),
                     ClanMesage {
@@ -788,7 +799,6 @@ impl clan_server::Clan for ClanService {
         let (_, extensions, _) = request.into_parts();
         let pool = extensions.get::<Pool<Postgres>>().unwrap();
         let credetials = extensions.get::<Claims>().unwrap();
-        let clans_broadcast = extensions.get::<ClanBroadcast>().unwrap();
 
         let (clan_id,): (Option<i32>,) = sqlx::query_as(
             "SELECT clan_id
@@ -806,7 +816,7 @@ impl clan_server::Clan for ClanService {
 
         let (tx, rx) = mpsc::channel(128);
 
-        let mut rcv = clans_broadcast.0.subscribe();
+        let mut rcv = self.receiver.resubscribe();
         tokio::spawn(async move {
             while let Ok((id, msg)) = rcv.recv().await {
                 if id == clan_id.unwrap() && tx.send(Result::<_, Status>::Ok(msg)).await.is_err() {

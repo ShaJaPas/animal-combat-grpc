@@ -6,6 +6,7 @@ package players;
 
 service Player {
     rpc GetProfile (google.protobuf.Empty) returns (PlayerProfile);
+    rpc GetEmotes (google.protobuf.Empty) returns (AllEmotesList);
 }
 
 message PlayerProfile {
@@ -19,4 +20,13 @@ message PlayerProfile {
     int32 level = 8;
     optional int32 clan_id = 9;
     int32 id = 10;
+}
+
+message EmotesList {
+    repeated string list = 1;
+}
+
+message AllEmotesList {
+    EmotesList playerEmotes = 1;
+    EmotesList otherEmotes = 2;
 }

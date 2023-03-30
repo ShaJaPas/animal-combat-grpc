@@ -60,4 +60,42 @@ impl player_server::Player for PlayerService {
             id: credetials.id,
         }))
     }
+
+    async fn get_emotes(&self, request: Request<()>) -> Result<Response<AllEmotesList>, Status> {
+        let (_, extensions, _) = request.into_parts();
+        let pool = extensions.get::<Pool<Postgres>>().unwrap();
+        let credetials = extensions.get::<Claims>().unwrap();
+
+        let rows: Vec<(Option<i32>, String)> = sqlx::query_as(
+            "WITH cl AS
+            (SELECT emote_id
+             FROM players_emotes
+             WHERE player_id = $1)
+          SELECT emote_id,
+                 file_name
+          FROM cl
+          RIGHT JOIN emotes ON emote_id = id",
+        )
+        .bind(credetials.id)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
+
+        Ok(Response::new(AllEmotesList {
+            player_emotes: Some(EmotesList {
+                list: rows
+                    .iter()
+                    .filter(|f| f.0.is_some())
+                    .map(|f| f.1.clone())
+                    .collect(),
+            }),
+            other_emotes: Some(EmotesList {
+                list: rows
+                    .iter()
+                    .filter(|f| f.0.is_none())
+                    .map(|f| f.1.clone())
+                    .collect(),
+            }),
+        }))
+    }
 }

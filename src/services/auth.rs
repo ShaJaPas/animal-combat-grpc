@@ -175,6 +175,23 @@ impl auth_server::Auth for AuthService {
             .await
             .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
 
+        sqlx::query(
+            "INSERT INTO players_emotes (player_id, emote_id)
+            SELECT $1,
+                   id
+            FROM emotes
+            WHERE file_name = 'sad'
+            UNION ALL
+            SELECT $1,
+                   id
+            FROM emotes
+            WHERE file_name = 'happy';",
+        )
+        .bind(id)
+        .execute(pool)
+        .await
+        .map_err(|e| Status::data_loss(format!("Database error: {e}")))?;
+
         Ok(Response::new(JwtPair {
             access_token,
             refresh_token,

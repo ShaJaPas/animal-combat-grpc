@@ -24,7 +24,7 @@ async fn create_user(pool: &PgPool, email: String) -> Result<JwtPair, Box<dyn st
 }
 
 #[sqlx::test]
-async fn test_token_rotation(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
+async fn test_get_profile(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
     let channel = get_test_channel(pool.clone()).await?;
     let user_response = create_user(&pool, "test@gmail.com".to_owned()).await?;
 
@@ -35,6 +35,32 @@ async fn test_token_rotation(pool: PgPool) -> Result<(), Box<dyn std::error::Err
     });
 
     client.get_profile(Request::new(())).await?;
+
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_get_emotes(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
+    let channel = get_test_channel(pool.clone()).await?;
+    let user_response = create_user(&pool, "test@gmail.com".to_owned()).await?;
+
+    let mut client = PlayerClient::with_interceptor(channel, move |mut req: Request<()>| {
+        req.metadata_mut()
+            .insert("authorization", user_response.access_token.parse().unwrap());
+        Ok(req)
+    });
+
+    assert!(
+        client
+            .get_emotes(Request::new(()))
+            .await?
+            .into_inner()
+            .player_emotes
+            .unwrap()
+            .list
+            .len()
+            == 2
+    );
 
     Ok(())
 }
