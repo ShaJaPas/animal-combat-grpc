@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 argon2 = { version = "0.4.1", features = ["std"] }
+bevy_ecs = "0.10.1"
 chrono = "0.4.23"
 dotenvy = "0.15.6"
 futures = "0.3.27"

@@ -1,0 +1,269 @@
+{
+    "animals": [
+        {
+            "id": 1,
+            "name": "Cat",
+            "hp": 120,
+            "damage": 30,
+            "resistance": 12,
+            "mobility": 6,
+            "png_name": "Cat",
+            "description": "The Cat is a small, typically furry, carnivorous mammal.",
+            "action_points": 100,
+            "action_points_per_turn": 8,
+            "abilities": [
+                {
+                    "name": "Pounce",
+                    "icon_name": "Cat_Pounce",
+                    "description": "This ability allows the cat to pounce on an enemy, dealing damage and stunning them for a short time. If the target is a mouse or a bird, the cat deals extra damage. \nStun duration - 1 turn\nPounce distance - 4 squares\nExtra damage - 10",
+                    "type": "active",
+                    "cooldown": 3,
+                    "cost": 30
+                },
+                {
+                    "name": "Scratch",
+                    "icon_name": "Cat_Scratch",
+                    "description": "This ability allows the cat to scratch an enemy, dealing damage and leaving them with a bleeding effect that deals additional damage over time.\nBleed damage - 5\nEffect duration - 4 turns",
+                    "type": "active",
+                    "cooldown": 2,
+                    "cost": 35
+                },
+                {
+                    "name": "Cat's Eye",
+                    "icon_name": "Cat_Eye",
+                    "description": "This ability allows the cat to see through any illusions or invisibility effects on enemies, revealing their true position. All allies get this effect.\nEffect duration - 5 turns",
+                    "type": "active",
+                    "cooldown": 4,
+                    "cost": 20
+                },
+                {
+                    "name": "Nine Lives",
+                    "icon_name": "Cat_Nine_Lives",
+                    "description": "This ability allows the cat to cheat death and revive with some HP after taking fatal damage.\nHP after revival - 10%",
+                    "type": "passive",
+                    "cooldown": 10
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "name": "Chick",
+            "hp": 80,
+            "damage": 18,
+            "resistance": 6,
+            "mobility": 10,
+            "png_name": "Chick",
+            "description": "The chicken is a domesticated junglefowl species. But chick has not yet reached adulthood.",
+            "action_points": 80,
+            "action_points_per_turn": 5,
+            "abilities": [
+                {
+                    "name": "Persistance",
+                    "icon_name": "Chick_Persistance",
+                    "description": "Due to its persistance, desire to grow and sharp beak, the chicken has the ability to inflict bleeding every third hit. Attacking another unit will reset the counter.\nEffect duration - 2 turns\nBleed damage - 5",
+                    "type": "passive"
+                },
+                {
+                    "name": "Flutter",
+                    "icon_name": "Chick_Flutter",
+                    "description": "The chick flutters its wings, gaining a temporary extra steps and damage reduction for next turns. Damage reduction works on enemy abilities.\nEffect duration - 2 turns\nDamage reduction - 40%\nExtra steps - 5",
+                    "type": "active",
+                    "cooldown": 4,
+                    "cost": 30
+                },
+                {
+                    "name": "Egg Bomb",
+                    "icon_name": "Chick_Egg_Bomb",
+                    "description": "The chick lays an egg. If it is destroyed, the destroyer get damage and stun. Allies can walk through this egg.\nStun duration - 1 turn\nAbility damage - 10",
+                    "type": "active",
+                    "cooldown": 5,
+                    "cost": 25
+                },
+                {
+                    "name": "Cluck",
+                    "icon_name": "Chick_Cluck",
+                    "description": "The chick lets out a loud cluck, asking for protection, temporarily boosting the damage and restoring some AP of all allies within a certain range of squares.\nDamage boost - 20%\nEffect duration - 3 turns\nAP restoration - 20",
+                    "type": "active",
+                    "cooldown": 7,
+                    "cost": 35
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "name": "Fox",
+            "hp": 140,
+            "damage": 35,
+            "resistance": 18,
+            "mobility": 5,
+            "png_name": "Fox",
+            "description": "Foxes are small to medium-sized, omnivorous mammals.",
+            "action_points": 75,
+            "action_points_per_turn": 7.5,
+            "abilities": [
+                {
+                    "name": "Deep Bite",
+                    "icon_name": "Fox_Deep_Bite",
+                    "description": "This ability allows the fox to bite its opponent, penetrating deep under the skin, and deals damage, which is related to the health of the victim.\nAbility damage - 30% of target current hitpoints",
+                    "type": "active",
+                    "cooldown": 4,
+                    "cost": 20
+                },
+                {
+                    "name": "Sly",
+                    "icon_name": "Fox_Sly",
+                    "description": "This ability gives the fox a natural cunning, allowing her to avoid damage from every third hit received. Don't work on enemy abilities",
+                    "type": "passive"
+                },
+                {
+                    "name": "Sneak",
+                    "icon_name": "Fox_Sneak",
+                    "description": "The fox can sneak around the battlefield, becoming invisible to opponents for one turn and allowing it to move freely without being detected. Attacks reveal invisibility.",
+                    "type": "active",
+                    "cooldown": 3,
+                    "cost": 15
+                },
+                {
+                    "name": "It's a trap",
+                    "icon_name": "Fox_Trap",
+                    "description": "The fox places invisble trap, which cannot be destroyed. Trap deals damage and disappears after something is placed on it.\nAbility damage - 35",
+                    "type": "active",
+                    "cooldown": 5,
+                    "cost": 25
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "name": "Mouse",
+            "hp": 90,
+            "damage": 20,
+            "resistance": 7,
+            "mobility": 12,
+            "png_name": "Mouse",
+            "description": "A mouse is a small rodent.",
+            "action_points": 140,
+            "action_points_per_turn": 12,
+            "abilities": [
+                {
+                    "name": "Gnaw",
+                    "icon_name": "Mouse_Gnaw",
+                    "description": "This ability allows the mouse to gnaw on its opponent, dealing low damage but inflicting a weakening status effect that lowers the opponent's attack power.\nEffect duration - 2 turns\nAbility damage - 13",
+                    "type": "active",
+                    "cooldown": 3,
+                    "cost": 20
+                },
+                {
+                    "name": "Night life",
+                    "icon_name": "Mouse_Night_Life",
+                    "description": "Mouse appears to be nocturnal, allowing it to see invisible enemies. Allies do not get this effect.",
+                    "type": "passive"
+                },
+                {
+                    "name": "Mouse hole",
+                    "icon_name": "Mouse_Mouse_Hole",
+                    "description": "Mouse digs a hole in any part of the map and hits all enemies around this hole. Mouse can dig a hole only on empty square.",
+                    "type": "active",
+                    "cooldown": 4,
+                    "cost": 35
+                },
+                {
+                    "name": "Cheese lure",
+                    "icon_name": "Mouse_Cheese_Lure",
+                    "description": "This ability allows the mouse to place a piece of cheese on the battlefield, luring in enemies and distracting them for one turn.\nLure radius - 5 squares",
+                    "type": "active",
+                    "cooldown": 6,
+                    "cost": 45
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "name": "Pig",
+            "hp": 180,
+            "damage": 25,
+            "resistance": 22,
+            "mobility": 4,
+            "png_name": "Pig",
+            "description": "The pig is an omnivorous, domesticated, even-toed, hoofed mammal.",
+            "action_points": 70,
+            "action_points_per_turn": 6.5,
+            "abilities": [
+                {
+                    "name": "Thick Skin",
+                    "icon_name": "Pig_Thick_Skin",
+                    "description": "This ability gives the pig a natural armor, reducing the amount of damage taken from bleeding.\nBleed damage reduction 50%.",
+                    "type": "passive"
+                },
+                {
+                    "name": "Charge",
+                    "icon_name": "Pig_Charge",
+                    "description": "The pig can rush at its opponent with a powerful charge, dealing high damage and potentially knocking him back. If there is an object behind the target, it will receive 50% ramming damage, but the target will not be knocked back.\nRam damage - 40\nKnockback - 1 square",
+                    "type": "active",
+                    "cooldown": 2,
+                    "cost": 25
+                },
+                {
+                    "name": "Mud Patch",
+                    "icon_name": "Pig_Mud_Patch",
+                    "description": "When the pig spawns a mud patch, it creates a temporary area of effect that slows down enemies and deals damage over time.\nDamage every turn - 7\nEffect duration - 3 turns\nEnemy steps count is reduced by 30%",
+                    "type": "active",
+                    "cooldown": 3,
+                    "cost": 20
+                },
+                {
+                    "name": "Snort",
+                    "icon_name": "Pig_Snort",
+                    "description": "The pig lets out a loud snort, stunning all enemies within a certain range for a short time. \nStun duration - 1 turn\nStun area - 3 squares around pig",
+                    "type": "active",
+                    "cooldown": 5,
+                    "cost": 10
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "name": "Rabbit",
+            "hp": 100,
+            "damage": 22,
+            "resistance": 4,
+            "mobility": 9,
+            "png_name": "Rabbit",
+            "description": "Rabbits, also known as bunnies or bunny rabbits, are small mammals.",
+            "action_points": 120,
+            "action_points_per_turn": 9.5,
+            "abilities": [
+                {
+                    "name": "Bunny Hop",
+                    "icon_name": "Rabbit_Bunny_Hop",
+                    "description": "The rabbit have an abilty of jump over any obstacle, while he is moving. He can jump over only one square.",
+                    "type": "passive"
+                },
+                {
+                    "name": "Bite",
+                    "icon_name": "Rabbit_Bite",
+                    "description": "The rabbit bites the enemy in front of it, dealing damage and reducing their movement range for a short time.\nEffect duration - 2 turns\nMovement range - 3 squares",
+                    "type": "active",
+                    "cooldown": 3,
+                    "cost": 30
+                },
+                {
+                    "name": "Burrow",
+                    "icon_name": "Rabbit_Burrow",
+                    "description": "The rabbit digs underground, becoming invulnerable for one turn and healing a small amount of health.\nHealth heal - 70% of current health",
+                    "type": "active",
+                    "cooldown": 5,
+                    "cost": 45
+                },
+                {
+                    "name": "Charm",
+                    "icon_name": "Rabbit_Charm",
+                    "description": "The rabbit uses its natural charm to temporarily pacify all enemies, preventing them from attacking for a short time. Global ability.\nPacific time - 2 turns",
+                    "type": "active",
+                    "cooldown": 6,
+                    "cost": 20
+                }
+            ]
+        }
+    ]
+}

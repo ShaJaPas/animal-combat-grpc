@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use animal_combat_grpc::{
-    jwt_interceptor, run_matchmaking_loop,
+    jwt_interceptor, run_battles_loop, run_matchmaking_loop,
     services::{
         auth::{AuthServer, AuthService},
         battle::{BattleServer, BattleService},
@@ -57,10 +57,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let players = PlayerService::default();
     let (tx, rx) = mpsc::channel(128);
     let (tx2, rx2) = broadcast::channel(128);
-    tokio::spawn(run_matchmaking_loop(rx, tx2));
+    let (battle_tx2, battle_rx2) = broadcast::channel(128);
+    let (battle_tx, battle_rx) = mpsc::channel(128);
+    tokio::spawn(run_matchmaking_loop(rx, tx2, battle_tx.clone()));
+    tokio::spawn(run_battles_loop(battle_rx, battle_tx2));
     let battle = BattleService {
         sender: tx,
         receiver: rx2,
+        battle_rx: battle_rx2,
+        battle_tx,
     };
 
     // Add cors support
@@ -86,7 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(
             TraceLayer::new(SharedClassifier::new(classifier))
                 .make_span_with(|request: &http::Request<Body>| {
-                    tracing::info_span!(
+                    tracing::error_span!(
                         "request",
                         uri = %request.uri(),
                         version = ?request.version()

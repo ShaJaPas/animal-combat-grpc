@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 package battle;
 
@@ -8,8 +9,102 @@ service Battle {
     rpc JoinMatchmaking (google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc LeaveMatchmaking (google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc FindMatch (google.protobuf.Empty) returns (stream MatchFound);
+    rpc BattleMessages (stream ClientBattleMessage) returns (stream BattleCommand);
 }
 
 message MatchFound {
-    int32 opponent_id = 1;
+    int32 opponentId = 1;
+    optional string nickname = 2;
+    optional string clanName = 3;
+    int32 glory = 4;
+    GameMap map = 5;
+    bool invert = 6;
+}
+
+message GameMap {
+    string name = 1;
+    repeated GameObject objects = 2;
+}
+
+message GameObject {
+    optional string pngName = 1;
+    int32 x = 2;
+    int32 y = 3;
+    GameObjectType objectType = 4;
+}
+
+enum GameObjectType {
+    Solid = 0;
+    Water = 1;
+    Walkable = 2;
+}
+
+message BattleCommand {
+    oneof command {
+        SetBattleState setState = 1;
+        
+        AnimalPicked picked = 2;
+        TurnToPick turnToPick = 3;
+
+        AnimalsPlaced placed = 4;
+    }
+}
+
+enum BattleState {
+    WaitingForPlayers = 0;
+    PickStage = 1;
+    PlacementStage = 2;
+    GameStage = 3;
+}
+
+message TurnToPick {
+    optional int32 playerId = 1;
+    google.protobuf.Timestamp deadline = 2;
+}
+
+message AnimalsPlaced {
+    repeated AnimalPlaced animals = 1;
+}
+message AnimalPlaced {
+    int32 playerId = 1;
+    Position position = 2;
+    int32 animalId = 3;
+}
+
+message SetBattleState{
+    BattleState state = 1;
+}
+
+message AnimalPicked {
+    int32 playerId = 1;
+    int32 animalId = 2;
+}
+
+message ClientBattleMessage {
+    oneof message {
+        PickAnimal pick = 1;
+        Ready ready = 2;
+
+        PlaceAnimals place = 3;
+    }
+}
+
+message PickAnimal {
+    int32 animalId = 1;
+}
+
+message Ready {}
+
+message PlaceAnimals {
+    repeated PlaceAnimal animals = 1;
+}
+
+message PlaceAnimal {
+    int32 animalId = 1;
+    Position position = 2;
+}
+
+message Position {
+    int32 x = 1;
+    int32 y = 2;
 }

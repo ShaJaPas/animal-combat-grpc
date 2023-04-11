@@ -1,0 +1,279 @@
+{
+    "maps": [
+        {
+            "map_name": "Map",
+            "objects": [
+                {
+                    "x": 2,
+                    "y": 7,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 7,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 7,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 8,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 8,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 8,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 9,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 9,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 9,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 10,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 10,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 10,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 11,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 11,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 11,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 12,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 12,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 12,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 13,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 13,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 13,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 14,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 14,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 14,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 15,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 15,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 15,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 16,
+                    "object_type": "water"
+                },
+                {
+                    "x": 3,
+                    "y": 16,
+                    "object_type": "water"
+                },
+                {
+                    "x": 4,
+                    "y": 16,
+                    "object_type": "water"
+                },
+                {
+                    "x": 2,
+                    "y": 6,
+                    "object_type": "solid",
+                    "png_name": "Fountain"
+                },
+                {
+                    "x": 4,
+                    "y": 6,
+                    "object_type": "solid",
+                    "png_name": "Fountain"
+                },
+                {
+                    "x": 2,
+                    "y": 17,
+                    "object_type": "solid",
+                    "png_name": "Fountain"
+                },
+                {
+                    "x": 4,
+                    "y": 17,
+                    "object_type": "solid",
+                    "png_name": "Fountain"
+                },
+                {
+                    "x": 3,
+                    "y": 6,
+                    "object_type": "solid",
+                    "png_name": "Hedge_Roses"
+                },
+                {
+                    "x": 3,
+                    "y": 17,
+                    "object_type": "solid",
+                    "png_name": "Hedge_Roses"
+                },
+                {
+                    "x": 0,
+                    "y": 8,
+                    "object_type": "solid",
+                    "png_name": "Box"
+                },
+                {
+                    "x": 6,
+                    "y": 8,
+                    "object_type": "solid",
+                    "png_name": "Box"
+                },
+                {
+                    "x": 0,
+                    "y": 15,
+                    "object_type": "solid",
+                    "png_name": "Box"
+                },
+                {
+                    "x": 6,
+                    "y": 15,
+                    "object_type": "solid",
+                    "png_name": "Box"
+                },
+                {
+                    "x": 1,
+                    "y": 2,
+                    "object_type": "solid",
+                    "png_name": "Hedge"
+                },
+                {
+                    "x": 2,
+                    "y": 2,
+                    "object_type": "solid",
+                    "png_name": "Hedge"
+                },
+                {
+                    "x": 5,
+                    "y": 21,
+                    "object_type": "solid",
+                    "png_name": "Hedge"
+                },
+                {
+                    "x": 4,
+                    "y": 21,
+                    "object_type": "solid",
+                    "png_name": "Hedge"
+                },
+                {
+                    "x": 4,
+                    "y": 3,
+                    "object_type": "solid",
+                    "png_name": "Boulders"
+                },
+                {
+                    "x": 5,
+                    "y": 4,
+                    "object_type": "solid",
+                    "png_name": "Boulders"
+                },
+                {
+                    "x": 5,
+                    "y": 3,
+                    "object_type": "solid",
+                    "png_name": "Bush"
+                },
+                {
+                    "x": 2,
+                    "y": 20,
+                    "object_type": "solid",
+                    "png_name": "Boulders"
+                },
+                {
+                    "x": 1,
+                    "y": 19,
+                    "object_type": "solid",
+                    "png_name": "Boulders"
+                },
+                {
+                    "x": 1,
+                    "y": 20,
+                    "object_type": "solid",
+                    "png_name": "Bush"
+                }
+            ]
+        }
+    ]
+}
