@@ -184,6 +184,41 @@ impl battle_server::Battle for BattleService {
                                                 })
                                                 .await
                                                 .ok();
+                                        },
+                                        client_battle_message::Message::Use(v) => {
+                                            sender
+                                                .send(BattleMessage::UsePlayerAnimal {
+                                                    player_id,
+                                                    animal: v,
+                                                })
+                                                .await
+                                                .ok();
+                                        },
+                                        client_battle_message::Message::Move(v) => {
+                                            sender
+                                                .send(BattleMessage::MovePlayerAnimal {
+                                                    player_id,
+                                                    animal: v,
+                                                })
+                                                .await
+                                                .ok();
+                                        },
+                                        client_battle_message::Message::End(_) => {
+                                            sender
+                                                .send(BattleMessage::EndTurn {
+                                                    player_id
+                                                })
+                                                .await
+                                                .ok();
+                                        },
+                                        client_battle_message::Message::Damage(v) => {
+                                            sender
+                                                .send(BattleMessage::DamagePlayerAnimal {
+                                                    player_id,
+                                                    animal: v
+                                                })
+                                                .await
+                                                .ok();
                                         }
                                     }
                                 }
@@ -197,6 +232,9 @@ impl battle_server::Battle for BattleService {
                     Ok(value) = rcv.recv() => {
                         match value {
                             BattleMessage::Response{ receivers, res } => {
+                                if res.is_err() {
+                                    println!("{:?}", res.as_ref().err());
+                                }
                                 if receivers.contains(&player_id) {
                                     tx.send(res.map(|cmd| BattleCommand {
                                         command: Some(cmd)

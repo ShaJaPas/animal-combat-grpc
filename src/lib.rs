@@ -1,9 +1,12 @@
+#![allow(clippy::type_complexity)]
+
 pub mod services;
 
 use crate::services::battle::battle_command::Command;
 use crate::services::battle::{
-    AnimalPicked, AnimalPlaced, AnimalsPlaced, BattleState, GameMap, GameObject, GameObjectType,
-    PickAnimal, PlaceAnimal, PlaceAnimals, SetBattleState, TurnToPick,
+    AnimalDamaged, AnimalDead, AnimalMoved, AnimalPicked, AnimalPlaced, AnimalsPlaced, BattleState,
+    DamageAnimal, GameMap, GameObject, GameObjectType, MoveAnimal, PickAnimal, PlaceAnimal,
+    PlaceAnimals, SetBattleState, TurnToPick, UseAnimal,
 };
 use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::ExecutorKind;
@@ -200,6 +203,21 @@ pub enum BattleMessage {
         player_id: i32,
         animals: PlaceAnimals,
     },
+    MovePlayerAnimal {
+        player_id: i32,
+        animal: MoveAnimal,
+    },
+    UsePlayerAnimal {
+        player_id: i32,
+        animal: UseAnimal,
+    },
+    EndTurn {
+        player_id: i32,
+    },
+    DamagePlayerAnimal {
+        player_id: i32,
+        animal: DamageAnimal,
+    },
     Response {
         receivers: Vec<i32>,
         res: Result<Command, Status>,
@@ -264,6 +282,16 @@ enum AbilityType {
 }
 
 #[derive(Serialize, Deserialize)]
+enum AbilityTarget {
+    #[serde(rename = "no_target")]
+    NoTarget,
+    #[serde(rename = "enemy")]
+    Enemy,
+    #[serde(rename = "empty_square")]
+    EmptySquare,
+}
+
+#[derive(Serialize, Deserialize)]
 struct Ability {
     name: String,
     icon_name: String,
@@ -272,6 +300,7 @@ struct Ability {
     ability_type: AbilityType,
     cooldown: Option<i32>,
     cost: Option<i32>,
+    target: Option<AbilityTarget>,
 }
 
 pub async fn run_matchmaking_loop(
@@ -306,15 +335,18 @@ pub async fn run_matchmaking_loop(
     }
 }
 
-const PICK_TIME: u64 = 30;
-const PLACE_TIME: u64 = 60;
+const PICK_TIME: u64 = 1;
+const PLACE_TIME: u64 = 1;
 const PICK_COUNT: usize = 6;
+const TURN_TIME: u64 = 60;
 
-// Events need to be updated in every frame in order to clear our buffers.
-// This update should happen before we use the events.
-// Here, we use system sets to control the ordering.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct FlushEvents;
+pub enum Set {
+    FlushEvents,
+    Gameplay,
+    Preparations,
+    EndTurn,
+}
 
 pub async fn run_battles_loop(mut rx: Receiver<BattleMessage>, tx: Sender<BattleMessage>) {
     let animals: Arc<Animals> =
@@ -325,14 +357,18 @@ pub async fn run_battles_loop(mut rx: Receiver<BattleMessage>, tx: Sender<Battle
     let mut schedule = Schedule::default();
     schedule.set_executor_kind(ExecutorKind::Simple);
 
-    schedule.add_system(Events::<Event>::update_system.in_set(FlushEvents));
-    schedule.add_systems((
-        pick_timeout.after(FlushEvents),
-        ready.after(FlushEvents),
-        pick.after(FlushEvents),
-        place.after(FlushEvents),
-        place_timeout.after(FlushEvents),
-    ));
+    schedule.add_system(Events::<Event>::update_system.in_set(Set::FlushEvents));
+    schedule.add_systems(
+        (pick_timeout, ready, pick, place, place_timeout)
+            .in_set(Set::Preparations)
+            .after(Set::FlushEvents),
+    );
+    schedule.add_systems(
+        (use_animal, move_animal, turn_timeout, end_turn, damage)
+            .in_set(Set::Gameplay)
+            .after(Set::Preparations),
+    );
+    schedule.add_system(death.in_set(Set::EndTurn).after(Set::Gameplay));
     loop {
         tokio::select! {
             Some(msg) = rx.recv() => {
@@ -361,25 +397,12 @@ pub async fn run_battles_loop(mut rx: Receiver<BattleMessage>, tx: Sender<Battle
                         world.insert_resource(GameState::new(m, tx.clone(), animals.clone()));
                         worlds.push(world);
                     }
-                    BattleMessage::Pick { player_id, cmd: _ } => {
-                        if let Some(&index) = index_map.get(&player_id)
-                        {
-                            let world: &mut World = &mut worlds[index];
-                            world.send_event(Event {
-                                message: msg
-                            });
-                            schedule.run(world);
-                        } else {
-                            tx.send(BattleMessage::Response{
-                                receivers: vec![player_id],
-                                res: Err(Status::not_found(
-                                    "Player is not playing",
-                                ))
-                            })
-                            .ok();
-                        }
-                    },
-                    BattleMessage::PlacePlayerAnimals { player_id, animals: _ } => {
+                    BattleMessage::Pick { player_id, cmd: _ }
+                    | BattleMessage::PlacePlayerAnimals { player_id, animals: _ }
+                    | BattleMessage::UsePlayerAnimal { player_id, animal: _ }
+                    | BattleMessage::MovePlayerAnimal { player_id, animal: _ }
+                    | BattleMessage::EndTurn { player_id }
+                    | BattleMessage::DamagePlayerAnimal { player_id, animal: _ } => {
                         if let Some(&index) = index_map.get(&player_id)
                         {
                             let world: &mut World = &mut worlds[index];
@@ -469,10 +492,82 @@ struct AnimalId {
     id: i32,
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component)]
+struct Used;
+
+#[derive(Component)]
+struct Hit;
+
+#[derive(Component, Clone, Debug)]
 struct Position {
     x: i32,
     y: i32,
+}
+
+impl Position {
+    fn can_hit(&self, other: &Position) -> bool {
+        println!("{self:?}, {other:?}");
+        if self.x == other.x {
+            return (self.y - other.y).abs() == 1;
+        }
+        if self.y == other.y {
+            return (self.x - other.x).abs() == 1;
+        }
+        false
+    }
+}
+
+#[derive(Component, Clone)]
+struct Health {
+    amount: i32,
+}
+
+impl Health {
+    fn take_damage(&mut self, amount: i32) -> i32 {
+        if self.amount < amount {
+            let res = self.amount;
+            self.amount = 0;
+            return res;
+        }
+        self.amount -= amount;
+        amount
+    }
+}
+
+#[derive(Component, Clone)]
+struct HitDamage {
+    amount: i32,
+}
+
+#[derive(Component, Clone)]
+struct HitDamageBlock {
+    percents: f32,
+}
+
+#[derive(Component, Clone)]
+struct Mobility {
+    squares: i32,
+}
+
+#[derive(Component, Clone)]
+struct ActionPoints {
+    amount: f32,
+}
+
+#[derive(Component, Clone)]
+struct APRecovery {
+    amount: f32,
+}
+
+#[derive(Bundle)]
+struct AnimalCharacteristics {
+    id: AnimalId,
+    health: Health,
+    damage: HitDamage,
+    block: HitDamageBlock,
+    mobility: Mobility,
+    ap: ActionPoints,
+    ap_recovery: APRecovery,
 }
 
 //Systems
@@ -486,31 +581,49 @@ fn pick_timeout(mut state: ResMut<GameState>, mut commands: Commands, query: Que
         && (state.deadline - now).num_milliseconds() <= 0
         && query.iter().count() != PICK_COUNT
     {
-        let available_animals: Vec<i32> = state
-            .animals
-            .animals
-            .iter()
-            .filter(|f| query.iter().all(|g| g.id != f.id))
-            .map(|f| f.id)
-            .collect();
-        let animal_id = *available_animals.choose(&mut rand::thread_rng()).unwrap();
-
         let turn = state.current_turn;
-        commands.spawn(AnimalId {
-            id: animal_id,
-            player_id: turn,
-        });
 
         if query.iter().count() % 2 == 0 {
             state.next_turn();
         }
+
+        let available_animals: Vec<&Animal> = state
+            .animals
+            .animals
+            .iter()
+            .filter(|f| query.iter().all(|g| g.id != f.id))
+            .collect();
+        let animal = *available_animals.choose(&mut rand::thread_rng()).unwrap();
+
+        commands.spawn(AnimalCharacteristics {
+            id: AnimalId {
+                id: animal.id,
+                player_id: turn,
+            },
+            health: Health { amount: animal.hp },
+            damage: HitDamage {
+                amount: animal.damage,
+            },
+            block: HitDamageBlock {
+                percents: animal.resistance,
+            },
+            mobility: Mobility {
+                squares: animal.mobility,
+            },
+            ap: ActionPoints {
+                amount: animal.action_points as f32,
+            },
+            ap_recovery: APRecovery {
+                amount: animal.action_points_per_turn,
+            },
+        });
 
         state
             .tx
             .send(BattleMessage::Response {
                 receivers: vec![state.m.player1, state.m.player2],
                 res: Ok(Command::Picked(AnimalPicked {
-                    animal_id,
+                    animal_id: animal.id,
                     player_id: turn,
                 })),
             })
@@ -620,9 +733,34 @@ fn pick(
                 && state.current_turn == player_id
                 && query.iter().count() != PICK_COUNT
             {
-                commands.spawn(AnimalId {
-                    id: animal_id,
-                    player_id,
+                let animal = state
+                    .animals
+                    .animals
+                    .iter()
+                    .find(|f| f.id == animal_id)
+                    .unwrap();
+
+                commands.spawn(AnimalCharacteristics {
+                    id: AnimalId {
+                        id: animal.id,
+                        player_id,
+                    },
+                    health: Health { amount: animal.hp },
+                    damage: HitDamage {
+                        amount: animal.damage,
+                    },
+                    block: HitDamageBlock {
+                        percents: animal.resistance,
+                    },
+                    mobility: Mobility {
+                        squares: animal.mobility,
+                    },
+                    ap: ActionPoints {
+                        amount: animal.action_points as f32,
+                    },
+                    ap_recovery: APRecovery {
+                        amount: animal.action_points_per_turn,
+                    },
                 });
 
                 state
@@ -819,6 +957,26 @@ fn place(
                         })
                         .ok();
                     state.state = BattleState::GameStage;
+
+                    let now = Utc::now();
+                    state.deadline = DateTime::<Utc>::from_utc(
+                        NaiveDateTime::from_timestamp_opt(now.timestamp() + TURN_TIME as i64, 0)
+                            .unwrap(),
+                        Utc,
+                    );
+                    state
+                        .tx
+                        .send(BattleMessage::Response {
+                            receivers: vec![state.m.player1, state.m.player2],
+                            res: Ok(Command::TurnToPick(TurnToPick {
+                                player_id: Some(state.current_turn),
+                                deadline: Some(Timestamp {
+                                    seconds: state.deadline.timestamp(),
+                                    nanos: 0,
+                                }),
+                            })),
+                        })
+                        .ok();
                 }
             }
         }
@@ -908,9 +1066,396 @@ fn place_timeout(
             })
             .ok();
         state.state = BattleState::GameStage;
+
+        let now = Utc::now();
+        state.deadline = DateTime::<Utc>::from_utc(
+            NaiveDateTime::from_timestamp_opt(now.timestamp() + TURN_TIME as i64, 0).unwrap(),
+            Utc,
+        );
+        state
+            .tx
+            .send(BattleMessage::Response {
+                receivers: vec![state.m.player1, state.m.player2],
+                res: Ok(Command::TurnToPick(TurnToPick {
+                    player_id: Some(state.current_turn),
+                    deadline: Some(Timestamp {
+                        seconds: state.deadline.timestamp(),
+                        nanos: 0,
+                    }),
+                })),
+            })
+            .ok();
     }
 }
 
+fn use_animal(
+    state: Res<GameState>,
+    mut commands: Commands,
+    not_used: Query<(Entity, &AnimalId), (With<Position>, Without<Used>)>,
+    used: Query<&AnimalId, With<Used>>,
+    mut event_reader: EventReader<Event>,
+) {
+    if state.state != BattleState::GameStage {
+        return;
+    }
+    for my_event in event_reader.iter() {
+        if let BattleMessage::UsePlayerAnimal { player_id, animal } = &my_event.message {
+            if state.current_turn == *player_id {
+                if used.iter().filter(|f| f.player_id == *player_id).count() == 0 {
+                    let Some((entity, ..)) = not_used.iter().find(|(.. , f)| f.id == animal.animal_id && f.player_id == *player_id) else {
+                        state
+                        .tx
+                        .send(BattleMessage::Response {
+                            receivers: vec![*player_id],
+                            res: Err(Status::not_found(
+                                "Animal not found",
+                            )),
+                        })
+                        .ok();
+                        return;
+                    };
+
+                    commands.entity(entity).insert(Used);
+                } else {
+                    state
+                        .tx
+                        .send(BattleMessage::Response {
+                            receivers: vec![*player_id],
+                            res: Err(Status::permission_denied(
+                                "One of your animals is already in use",
+                            )),
+                        })
+                        .ok();
+                }
+            } else {
+                state
+                    .tx
+                    .send(BattleMessage::Response {
+                        receivers: vec![*player_id],
+                        res: Err(Status::permission_denied("Not your turn")),
+                    })
+                    .ok();
+            }
+        }
+    }
+}
+
+fn move_animal(
+    state: Res<GameState>,
+    mut event_reader: EventReader<Event>,
+    mut used: Query<(&AnimalId, &mut Position, &mut Mobility), With<Used>>,
+    objects: Query<&Position, Without<Used>>,
+) {
+    if state.state != BattleState::GameStage {
+        return;
+    }
+    for my_event in event_reader.iter() {
+        if let BattleMessage::MovePlayerAnimal {
+            player_id,
+            animal: MoveAnimal {
+                position: Some(mut pos),
+            },
+        } = my_event.message.clone()
+        {
+            if state.current_turn == player_id {
+                let Some((&AnimalId {player_id: _, id: animal_id}, mut position, mut mobility)) = used.iter_mut().find(|(f, ..)| f.player_id == player_id) else {
+                    state
+                        .tx
+                        .send(BattleMessage::Response {
+                            receivers: vec![player_id],
+                            res: Err(Status::permission_denied("Not using any animal")),
+                        })
+                        .ok();
+                    return;
+                };
+                if state.m.player2 != player_id {
+                    pos.y = 23 - pos.y;
+                }
+
+                let mut squares = 0;
+                if position.x == pos.x {
+                    for iy in if pos.y > position.y {
+                        (position.y + 1)..=pos.y
+                    } else {
+                        pos.y..=(position.y - 1)
+                    } {
+                        if objects.iter().any(|f| f.x == pos.x && f.y == iy) {
+                            state
+                                .tx
+                                .send(BattleMessage::Response {
+                                    receivers: vec![player_id],
+                                    res: Err(Status::permission_denied("Cannot move here")),
+                                })
+                                .ok();
+                            return;
+                        }
+                        squares += 1;
+                    }
+                } else if position.y == pos.y {
+                    for ix in if pos.x > position.x {
+                        (position.x + 1)..=pos.x
+                    } else {
+                        pos.x..=(position.x - 1)
+                    } {
+                        if objects.iter().any(|f| f.x == ix && f.y == pos.y) {
+                            state
+                                .tx
+                                .send(BattleMessage::Response {
+                                    receivers: vec![player_id],
+                                    res: Err(Status::permission_denied("Cannot move here")),
+                                })
+                                .ok();
+                            return;
+                        }
+                        squares += 1;
+                    }
+                }
+
+                if mobility.squares >= squares && (pos.x == position.x || pos.y == position.y) {
+                    mobility.squares -= squares;
+                    position.x = pos.x;
+                    position.y = pos.y;
+
+                    for rec in [state.m.player1, state.m.player2] {
+                        state
+                            .tx
+                            .send(BattleMessage::Response {
+                                receivers: vec![rec],
+                                res: Ok(Command::Moved(AnimalMoved {
+                                    player_id,
+                                    position: Some(battle::Position { x: pos.x, y: pos.y }),
+                                    animal_id,
+                                    squares: if rec == player_id {
+                                        Some(squares)
+                                    } else {
+                                        None
+                                    },
+                                })),
+                            })
+                            .ok();
+                    }
+                } else {
+                    state
+                        .tx
+                        .send(BattleMessage::Response {
+                            receivers: vec![player_id],
+                            res: Err(Status::permission_denied("Not enough squares to move")),
+                        })
+                        .ok();
+                }
+            } else {
+                state
+                    .tx
+                    .send(BattleMessage::Response {
+                        receivers: vec![player_id],
+                        res: Err(Status::permission_denied("Not your turn")),
+                    })
+                    .ok();
+            }
+        }
+    }
+}
+
+fn turn_timeout(
+    mut state: ResMut<GameState>,
+    mut commands: Commands,
+    mut used: Query<(Entity, &AnimalId, &mut Mobility), With<Used>>,
+) {
+    if state.state != BattleState::GameStage {
+        return;
+    }
+    let now = Utc::now();
+    if (state.deadline - now).num_milliseconds() <= 0 {
+        for (entity, AnimalId { id: animal_id, .. }, mut mobility) in used.iter_mut() {
+            let animal = state
+                .animals
+                .animals
+                .iter()
+                .find(|f| f.id == *animal_id)
+                .unwrap();
+            mobility.squares = animal.mobility;
+            commands.entity(entity).remove::<Used>().remove::<Hit>();
+        }
+        state.deadline = DateTime::<Utc>::from_utc(
+            NaiveDateTime::from_timestamp_opt(now.timestamp() + TURN_TIME as i64, 0).unwrap(),
+            Utc,
+        );
+        state.next_turn();
+        state
+            .tx
+            .send(BattleMessage::Response {
+                receivers: vec![state.m.player1, state.m.player2],
+                res: Ok(Command::TurnToPick(TurnToPick {
+                    player_id: Some(state.current_turn),
+                    deadline: Some(Timestamp {
+                        seconds: state.deadline.timestamp(),
+                        nanos: 0,
+                    }),
+                })),
+            })
+            .ok();
+    }
+}
+
+fn end_turn(
+    mut state: ResMut<GameState>,
+    mut event_reader: EventReader<Event>,
+    mut commands: Commands,
+    mut used: Query<(Entity, &AnimalId, &mut Mobility), With<Used>>,
+) {
+    if state.state != BattleState::GameStage {
+        return;
+    }
+    for my_event in event_reader.iter() {
+        if let BattleMessage::EndTurn { player_id } = my_event.message {
+            if state.current_turn == player_id {
+                let now = Utc::now();
+                for (entity, AnimalId { id: animal_id, .. }, mut mobility) in used.iter_mut() {
+                    let animal = state
+                        .animals
+                        .animals
+                        .iter()
+                        .find(|f| f.id == *animal_id)
+                        .unwrap();
+                    mobility.squares = animal.mobility;
+                    commands.entity(entity).remove::<Used>().remove::<Hit>();
+                }
+                state.deadline = DateTime::<Utc>::from_utc(
+                    NaiveDateTime::from_timestamp_opt(now.timestamp() + TURN_TIME as i64, 0)
+                        .unwrap(),
+                    Utc,
+                );
+                state.next_turn();
+                state
+                    .tx
+                    .send(BattleMessage::Response {
+                        receivers: vec![state.m.player1, state.m.player2],
+                        res: Ok(Command::TurnToPick(TurnToPick {
+                            player_id: Some(state.current_turn),
+                            deadline: Some(Timestamp {
+                                seconds: state.deadline.timestamp(),
+                                nanos: 0,
+                            }),
+                        })),
+                    })
+                    .ok();
+            } else {
+                state
+                    .tx
+                    .send(BattleMessage::Response {
+                        receivers: vec![player_id],
+                        res: Err(Status::permission_denied("Not your turn")),
+                    })
+                    .ok();
+            }
+        }
+    }
+}
+
+fn damage(
+    state: Res<GameState>,
+    mut event_reader: EventReader<Event>,
+    mut commands: Commands,
+    used: Query<(&AnimalId, Entity, &Position, &HitDamage), (With<Used>, Without<Hit>)>,
+    mut animals: Query<(&AnimalId, &Position, &mut Health, &HitDamageBlock), Without<Used>>,
+) {
+    if state.state != BattleState::GameStage {
+        return;
+    }
+    for my_event in event_reader.iter() {
+        if let BattleMessage::DamagePlayerAnimal {
+            player_id,
+            animal: DamageAnimal {
+                position: Some(pos),
+            },
+        } = my_event.message.clone()
+        {
+            if state.current_turn == player_id {
+                let Some((&AnimalId {player_id: _, id: animal_id}, entity, position, hit_damage)) = used.iter().find(|(f, ..)| f.player_id == player_id) else {
+                    state
+                        .tx
+                        .send(BattleMessage::Response {
+                            receivers: vec![player_id],
+                            res: Err(Status::permission_denied("Not using any animal")),
+                        })
+                        .ok();
+                    return;
+                };
+                let mut pos = Position { x: pos.x, y: pos.y };
+                if state.m.player2 != player_id {
+                    pos.y = 23 - pos.y;
+                }
+                if position.can_hit(&pos) {
+                    let Some(mut val) = animals.iter_mut().find(|(f, p, ..)| f.player_id != player_id && p.x == pos.x && p.y == pos.y) else {
+                        state
+                        .tx
+                        .send(BattleMessage::Response {
+                            receivers: vec![player_id],
+                            res: Err(Status::permission_denied("Nobody to hit")),
+                        })
+                        .ok();
+                    return;
+                    };
+
+                    let damage = val.2.take_damage(
+                        ((1f32 - val.3.percents / 100f32) * hit_damage.amount as f32) as i32,
+                    );
+                    commands.entity(entity).insert(Hit);
+                    state
+                        .tx
+                        .send(BattleMessage::Response {
+                            receivers: vec![state.m.player1, state.m.player2],
+                            res: Ok(Command::Damaged(AnimalDamaged {
+                                player_id,
+                                damaged_animal_id: val.0.id,
+                                damager_animal_id: animal_id,
+                                damage,
+                            })),
+                        })
+                        .ok();
+                } else {
+                    state
+                        .tx
+                        .send(BattleMessage::Response {
+                            receivers: vec![player_id],
+                            res: Err(Status::permission_denied("Cannot hit in this position")),
+                        })
+                        .ok();
+                }
+            } else {
+                state
+                    .tx
+                    .send(BattleMessage::Response {
+                        receivers: vec![player_id],
+                        res: Err(Status::permission_denied("Not your turn")),
+                    })
+                    .ok();
+            }
+        }
+    }
+}
+
+fn death(
+    state: Res<GameState>,
+    animals: Query<(&AnimalId, Entity, &Health)>,
+    mut commands: Commands,
+) {
+    if state.state != BattleState::GameStage {
+        return;
+    }
+    for (animal_id, entity, ..) in animals.iter().filter(|(.., health)| health.amount <= 0) {
+        commands.entity(entity).despawn();
+        state
+            .tx
+            .send(BattleMessage::Response {
+                receivers: vec![state.m.player1, state.m.player2],
+                res: Ok(Command::Dead(AnimalDead {
+                    animal_id: animal_id.id,
+                })),
+            })
+            .ok();
+    }
+}
 //Events
 
 struct Event {

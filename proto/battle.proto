@@ -42,11 +42,15 @@ enum GameObjectType {
 message BattleCommand {
     oneof command {
         SetBattleState setState = 1;
-        
-        AnimalPicked picked = 2;
-        TurnToPick turnToPick = 3;
+        TurnToPick turnToPick = 2;
+
+        AnimalPicked picked = 3;
 
         AnimalsPlaced placed = 4;
+        
+        AnimalMoved moved = 5;
+        AnimalDamaged damaged = 6;
+        AnimalDead dead = 7;
     }
 }
 
@@ -55,6 +59,10 @@ enum BattleState {
     PickStage = 1;
     PlacementStage = 2;
     GameStage = 3;
+}
+
+message AnimalDead {
+    int32 animalId = 1;
 }
 
 message TurnToPick {
@@ -69,6 +77,20 @@ message AnimalPlaced {
     int32 playerId = 1;
     Position position = 2;
     int32 animalId = 3;
+}
+
+message AnimalDamaged {
+    int32 playerId = 1;
+    int32 damagedAnimalId = 2;
+    int32 damagerAnimalId = 3;
+    int32 damage = 4;
+}
+
+message AnimalMoved {
+    int32 playerId = 1;
+    Position position = 2;
+    int32 animalId = 3;
+    optional int32 squares = 4;
 }
 
 message SetBattleState{
@@ -86,6 +108,11 @@ message ClientBattleMessage {
         Ready ready = 2;
 
         PlaceAnimals place = 3;
+
+        UseAnimal use = 4;
+        MoveAnimal move = 5;
+        EndTurn end = 6;
+        DamageAnimal damage = 7;
     }
 }
 
@@ -93,7 +120,20 @@ message PickAnimal {
     int32 animalId = 1;
 }
 
+message UseAnimal {
+    int32 animalId = 1;
+}
+
+message MoveAnimal {
+    Position position = 1;
+}
+
+message DamageAnimal {
+    Position position = 2;
+}
+
 message Ready {}
+message EndTurn {}
 
 message PlaceAnimals {
     repeated PlaceAnimal animals = 1;

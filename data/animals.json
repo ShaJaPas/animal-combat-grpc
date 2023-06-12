@@ -17,6 +17,7 @@
                     "icon_name": "Cat_Pounce",
                     "description": "This ability allows the cat to pounce on an enemy, dealing damage and stunning them for a short time. If the target is a mouse or a bird, the cat deals extra damage. \nStun duration - 1 turn\nPounce distance - 4 squares\nExtra damage - 10",
                     "type": "active",
+                    "target": "enemy",
                     "cooldown": 3,
                     "cost": 30
                 },
@@ -25,6 +26,7 @@
                     "icon_name": "Cat_Scratch",
                     "description": "This ability allows the cat to scratch an enemy, dealing damage and leaving them with a bleeding effect that deals additional damage over time.\nBleed damage - 5\nEffect duration - 4 turns",
                     "type": "active",
+                    "target": "enemy",
                     "cooldown": 2,
                     "cost": 35
                 },
@@ -33,6 +35,7 @@
                     "icon_name": "Cat_Eye",
                     "description": "This ability allows the cat to see through any illusions or invisibility effects on enemies, revealing their true position. All allies get this effect.\nEffect duration - 5 turns",
                     "type": "active",
+                    "target": "no_target",
                     "cooldown": 4,
                     "cost": 20
                 },
@@ -68,6 +71,7 @@
                     "icon_name": "Chick_Flutter",
                     "description": "The chick flutters its wings, gaining a temporary extra steps and damage reduction for next turns. Damage reduction works on enemy abilities.\nEffect duration - 2 turns\nDamage reduction - 40%\nExtra steps - 5",
                     "type": "active",
+                    "target": "no_target",
                     "cooldown": 4,
                     "cost": 30
                 },
@@ -76,6 +80,7 @@
                     "icon_name": "Chick_Egg_Bomb",
                     "description": "The chick lays an egg. If it is destroyed, the destroyer get damage and stun. Allies can walk through this egg.\nStun duration - 1 turn\nAbility damage - 10",
                     "type": "active",
+                    "target": "empty_square",
                     "cooldown": 5,
                     "cost": 25
                 },
@@ -84,6 +89,7 @@
                     "icon_name": "Chick_Cluck",
                     "description": "The chick lets out a loud cluck, asking for protection, temporarily boosting the damage and restoring some AP of all allies within a certain range of squares.\nDamage boost - 20%\nEffect duration - 3 turns\nAP restoration - 20",
                     "type": "active",
+                    "target": "no_target",
                     "cooldown": 7,
                     "cost": 35
                 }
@@ -106,6 +112,7 @@
                     "icon_name": "Fox_Deep_Bite",
                     "description": "This ability allows the fox to bite its opponent, penetrating deep under the skin, and deals damage, which is related to the health of the victim.\nAbility damage - 30% of target current hitpoints",
                     "type": "active",
+                    "target": "enemy",
                     "cooldown": 4,
                     "cost": 20
                 },
@@ -120,6 +127,7 @@
                     "icon_name": "Fox_Sneak",
                     "description": "The fox can sneak around the battlefield, becoming invisible to opponents for one turn and allowing it to move freely without being detected. Attacks reveal invisibility.",
                     "type": "active",
+                    "target": "no_target",
                     "cooldown": 3,
                     "cost": 15
                 },
@@ -128,6 +136,7 @@
                     "icon_name": "Fox_Trap",
                     "description": "The fox places invisble trap, which cannot be destroyed. Trap deals damage and disappears after something is placed on it.\nAbility damage - 35",
                     "type": "active",
+                    "target": "empty_square",
                     "cooldown": 5,
                     "cost": 25
                 }
@@ -150,6 +159,7 @@
                     "icon_name": "Mouse_Gnaw",
                     "description": "This ability allows the mouse to gnaw on its opponent, dealing low damage but inflicting a weakening status effect that lowers the opponent's attack power.\nEffect duration - 2 turns\nAbility damage - 13",
                     "type": "active",
+                    "target": "enemy",
                     "cooldown": 3,
                     "cost": 20
                 },
@@ -164,6 +174,7 @@
                     "icon_name": "Mouse_Mouse_Hole",
                     "description": "Mouse digs a hole in any part of the map and hits all enemies around this hole. Mouse can dig a hole only on empty square.",
                     "type": "active",
+                    "target": "empty_square",
                     "cooldown": 4,
                     "cost": 35
                 },
@@ -172,6 +183,7 @@
                     "icon_name": "Mouse_Cheese_Lure",
                     "description": "This ability allows the mouse to place a piece of cheese on the battlefield, luring in enemies and distracting them for one turn.\nLure radius - 5 squares",
                     "type": "active",
+                    "target": "empty_square",
                     "cooldown": 6,
                     "cost": 45
                 }
@@ -200,6 +212,7 @@
                     "icon_name": "Pig_Charge",
                     "description": "The pig can rush at its opponent with a powerful charge, dealing high damage and potentially knocking him back. If there is an object behind the target, it will receive 50% ramming damage, but the target will not be knocked back.\nRam damage - 40\nKnockback - 1 square",
                     "type": "active",
+                    "target": "enemy",
                     "cooldown": 2,
                     "cost": 25
                 },
@@ -208,6 +221,7 @@
                     "icon_name": "Pig_Mud_Patch",
                     "description": "When the pig spawns a mud patch, it creates a temporary area of effect that slows down enemies and deals damage over time.\nDamage every turn - 7\nEffect duration - 3 turns\nEnemy steps count is reduced by 30%",
                     "type": "active",
+                    "target": "empty_square",
                     "cooldown": 3,
                     "cost": 20
                 },
@@ -216,6 +230,7 @@
                     "icon_name": "Pig_Snort",
                     "description": "The pig lets out a loud snort, stunning all enemies within a certain range for a short time. \nStun duration - 1 turn\nStun area - 3 squares around pig",
                     "type": "active",
+                    "target": "no_target",
                     "cooldown": 5,
                     "cost": 10
                 }
@@ -244,6 +259,7 @@
                     "icon_name": "Rabbit_Bite",
                     "description": "The rabbit bites the enemy in front of it, dealing damage and reducing their movement range for a short time.\nEffect duration - 2 turns\nMovement range - 3 squares",
                     "type": "active",
+                    "target": "enemy",
                     "cooldown": 3,
                     "cost": 30
                 },
@@ -252,6 +268,7 @@
                     "icon_name": "Rabbit_Burrow",
                     "description": "The rabbit digs underground, becoming invulnerable for one turn and healing a small amount of health.\nHealth heal - 70% of current health",
                     "type": "active",
+                    "target": "no_target",
                     "cooldown": 5,
                     "cost": 45
                 },
@@ -260,6 +277,7 @@
                     "icon_name": "Rabbit_Charm",
                     "description": "The rabbit uses its natural charm to temporarily pacify all enemies, preventing them from attacking for a short time. Global ability.\nPacific time - 2 turns",
                     "type": "active",
+                    "target": "no_target",
                     "cooldown": 6,
                     "cost": 20
                 }
